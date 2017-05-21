@@ -7,6 +7,8 @@
  * @author  Noah Ansel
  */
 
+#include <stdio.h>
+#include <string.h>
 #include "threadsafe_prioqueue.h"
 #include "gtest/gtest.h"
 
@@ -15,7 +17,7 @@
  */
 typedef struct Test_struct {
     int id;
-    char data[3600];
+    char data[2048];
 } TestStruct;
 
 #define NUM_ELEMENTS 32
@@ -28,16 +30,23 @@ THREADSAFE_PRIOQUEUE(INTEGER, int, NUM_ELEMENTS)
 THREADSAFE_PRIOQUEUE(TESTSTRUCT, TestStruct, NUM_ELEMENTS)
 
 
-
+/**
+ * Test fixture for {@link THREADSAFE_PRIOQUEUE} tests.
+ */
 class ThreadsafePrioQueueTest : public ::testing::Test {
 protected:
+    /**
+     * Initializes queues.
+     */
     virtual void SetUp() {
         TESTSTRUCT_init();
         INTEGER_init();
     }   
 };
 
-
+/**
+ * Tests NAME_put_ptr functionality.
+ */
 TEST_F(ThreadsafePrioQueueTest, put_ptr) {
     TestStruct* data = NULL;
     int* res = NULL;
@@ -56,6 +65,9 @@ TEST_F(ThreadsafePrioQueueTest, put_ptr) {
     EXPECT_EQ(THREADSAFE_PRIOQUEUE_OUT_OF_BOUNDS, INTEGER_put_ptr(35, &res));
 }
 
+/**
+ * Tests NAME_put_unlock functionality.
+ */
 TEST_F(ThreadsafePrioQueueTest, put_unlock) {
     EXPECT_EQ(THREADSAFE_PRIOQUEUE_NOT_LOCKED, TESTSTRUCT_put_unlock(2, false));
 
@@ -79,9 +91,14 @@ TEST_F(ThreadsafePrioQueueTest, put_unlock) {
     EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_ptr(30, &res2));
 }
 
+/**
+ * Tests NAME_pull_ptr functionality.
+ */
 TEST_F(ThreadsafePrioQueueTest, pull_ptr) {
     TestStruct* dataIn = NULL;
     TestStruct* dataOut = NULL;
+    int* intIn = NULL;
+    int* intOut = NULL;
 
     // pull when empty
     EXPECT_EQ(THREADSAFE_PRIOQUEUE_EMPTY, TESTSTRUCT_pull_ptr(&dataOut));
@@ -104,8 +121,6 @@ TEST_F(ThreadsafePrioQueueTest, pull_ptr) {
 
     // pull when pull locked
     EXPECT_EQ(THREADSAFE_PRIOQUEUE_LOCKED, TESTSTRUCT_pull_ptr(&dataOut));
-
-    // unlock
     EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, TESTSTRUCT_pull_unlock());
 
     // pull with need to wrap
@@ -114,14 +129,30 @@ TEST_F(ThreadsafePrioQueueTest, pull_ptr) {
     EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, TESTSTRUCT_put_ptr(4, &dataOut));
     EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, TESTSTRUCT_put_unlock(4, true));
     EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, TESTSTRUCT_pull_ptr(&dataOut));
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, TESTSTRUCT_pull_unlock());
     EXPECT_FALSE(dataOut == NULL);
     EXPECT_EQ(dataIn, dataOut);
+
+    // pull when empty resets pullIdx
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_ptr(3, &intIn));
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_unlock(3, true));
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_ptr(4, &intIn));
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_ptr(&intOut));
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_unlock());
+    EXPECT_EQ(4, INTEGER.pullIdx);
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_EMPTY, INTEGER_pull_ptr(&intOut));
+    EXPECT_EQ(0, INTEGER.pullIdx);
+
 }
 
+/**
+ * Tests NAME_pull_unlock functionality.
+ */
 TEST_F(ThreadsafePrioQueueTest, pull_unlock) {
     TestStruct* dataIn = NULL;
     TestStruct* dataOut = NULL;
 
+    // unlock non-locked
     EXPECT_EQ(THREADSAFE_PRIOQUEUE_NOT_LOCKED, TESTSTRUCT_pull_unlock());
 
     // put data
@@ -141,6 +172,9 @@ TEST_F(ThreadsafePrioQueueTest, pull_unlock) {
     EXPECT_EQ(0, TESTSTRUCT.nodes[32].controlFlag & THREADSAFE_PRIOQUEUE_LOCKED_FLAG);
 }
 
+/**
+ * Tests NAME_reset_pullIdx functionality.
+ */
 TEST_F(ThreadsafePrioQueueTest, reset_pullIdx) {
     int* dataIn = NULL;
     int* dataOut = NULL;
@@ -151,7 +185,40 @@ TEST_F(ThreadsafePrioQueueTest, reset_pullIdx) {
     EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_ptr(&dataOut));
     EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_unlock());
     
+    // test pullIdx
     EXPECT_EQ(4, INTEGER.pullIdx);
     EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_reset_pullIdx());
     EXPECT_EQ(0, INTEGER.pullIdx);
+}
+
+/**
+ * Verifies data integrity through input and output.
+ */
+TEST_F(ThreadsafePrioQueueTest, dataIntegrity) {
+    int value;
+    int* intIn;
+    int* intOut;
+    TestStruct data;
+    TestStruct* dataIn;
+    TestStruct* dataOut;
+    data.id = 1380;
+    snprintf(data.data, 2048, "This is a test. It can be large because this is a very big data structure.");
+
+
+    // test for integer
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_ptr(31, &intIn));
+    (*intIn) = 52469;
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_unlock(31, true));
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_ptr(&intOut));
+    value = (*intOut);
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_unlock());
+    EXPECT_EQ(52469, value);
+
+    // test for struct
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, TESTSTRUCT_put_ptr(31, &dataIn));
+    memcpy(dataIn, &data, sizeof(TestStruct));
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, TESTSTRUCT_put_unlock(31, true));
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, TESTSTRUCT_pull_ptr(&dataOut));
+    EXPECT_EQ(0, memcmp(&data, dataOut, sizeof(TestStruct)));
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, TESTSTRUCT_pull_unlock());
 }

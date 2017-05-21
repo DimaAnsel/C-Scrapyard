@@ -13,7 +13,9 @@
 #ifndef THREADSAFE_PRIOQUEUE_H_
 #define THREADSAFE_PRIOQUEUE_H_
 
+/**Bit flag used to mark an occupied data slot.*/
 #define THREADSAFE_PRIOQUEUE_OCCUPIED_FLAG (char)0x1
+/**Bit flag used to mark a locked data slot.*/
 #define THREADSAFE_PRIOQUEUE_LOCKED_FLAG (char)0x2
 
 /**
@@ -22,18 +24,27 @@
  * Error codes for functions THREADSAFE_PRIOQUEUE()
  */
 typedef enum ThreadsafePrioQueueError_enum {
+    /**Routine successfully executed.*/
     THREADSAFE_PRIOQUEUE_OK,
+    /**Provided index was out of bounds.*/
     THREADSAFE_PRIOQUEUE_OUT_OF_BOUNDS,
+    /**Tried to access locked data.*/
     THREADSAFE_PRIOQUEUE_LOCKED,
+    /**Tried to unlock non-locked data.*/
     THREADSAFE_PRIOQUEUE_NOT_LOCKED,
+    /**Tried to pull from an empty queue.*/
     THREADSAFE_PRIOQUEUE_EMPTY,
+    /**Unknown error occurred.*/
     THREADSAFE_PRIOQUEUE_ERROR
 } ThreadsafePrioQueueError;
 
 /**
  * Creates a new thread-safe priority queue named NAME that holds
  * SIZE elements of type TYPE. Defines several methods for accessing the data
- * structure. 
+ * structure:
+ *      * NAME_init(): Initializes the queue.
+ *      * NAME_put_ptr(idx, ptr): Gives provider access to specified index.
+ *      * NAME_put_unlock(idx, occupied): Unlocks a specified index 
  */
 #define THREADSAFE_PRIOQUEUE(NAME, TYPE, SIZE) \
 \
