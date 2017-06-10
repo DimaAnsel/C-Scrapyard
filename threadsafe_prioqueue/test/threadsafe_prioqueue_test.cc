@@ -23,11 +23,11 @@ typedef struct Test_struct {
 #define NUM_ELEMENTS 32
 
 // initializes a primitive test queue
-THREADSAFE_PRIOQUEUE(INTEGER, int, NUM_ELEMENTS)
+THREADSAFE_PRIOQUEUE(INTEGER, int, NUM_ELEMENTS, true)
 
 
 // initializes a struct test queue
-THREADSAFE_PRIOQUEUE(TESTSTRUCT, TestStruct, NUM_ELEMENTS)
+THREADSAFE_PRIOQUEUE(TESTSTRUCT, TestStruct, NUM_ELEMENTS, false)
 
 
 /**
@@ -172,10 +172,174 @@ TEST_F(ThreadsafePrioQueueTest, pull_unlock) {
     EXPECT_EQ(0, TESTSTRUCT.nodes[32].controlFlag & THREADSAFE_PRIOQUEUE_LOCKED_FLAG);
 }
 
+TEST_F(ThreadsafePrioQueueTest, numOccupied) {
+    int* dataIn = NULL;
+    int* dataOut = NULL;
+
+    // insert
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_ptr(5, &dataIn));
+    (*dataIn) = 5;
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_unlock(5, true));
+    EXPECT_EQ(1, INTEGER.numOccupied);
+    
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_ptr(1, &dataIn));
+    (*dataIn) = 1;
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_unlock(1, true));
+    EXPECT_EQ(2, INTEGER.numOccupied);
+    
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_ptr(9, &dataIn));
+    (*dataIn) = 9;
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_unlock(9, true));
+    EXPECT_EQ(3, INTEGER.numOccupied);
+    
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_ptr(4, &dataIn));
+    (*dataIn) = 4;
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_unlock(4, true));
+    EXPECT_EQ(4, INTEGER.numOccupied);
+
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_ptr(2, &dataIn));
+    (*dataIn) = 2;
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_unlock(2, true));
+    EXPECT_EQ(5, INTEGER.numOccupied);
+
+    // over-write existing data
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_ptr(2, &dataIn));
+    (*dataIn) = 2;
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_unlock(2, true));
+    EXPECT_EQ(5, INTEGER.numOccupied);
+    
+    // empty index
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_ptr(4, &dataIn));
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_unlock(4, false));
+    EXPECT_EQ(4, INTEGER.numOccupied);
+    
+    // add back
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_ptr(4, &dataIn));
+    (*dataIn) = 4;
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_unlock(4, true));
+    EXPECT_EQ(5, INTEGER.numOccupied);
+
+    // verify pulled in order
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_set_pullIdx(2));
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_ptr(&dataOut));
+    EXPECT_EQ(2, *dataOut);
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_unlock());
+    EXPECT_EQ(4, INTEGER.numOccupied);
+
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_ptr(&dataOut));
+    EXPECT_EQ(4, *dataOut);
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_unlock());
+    EXPECT_EQ(3, INTEGER.numOccupied);
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_ptr(&dataOut));
+    EXPECT_EQ(5, *dataOut);
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_unlock());
+    EXPECT_EQ(2, INTEGER.numOccupied);
+
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_ptr(&dataOut));
+    EXPECT_EQ(9, *dataOut);
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_unlock());
+    EXPECT_EQ(1, INTEGER.numOccupied);
+
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_ptr(&dataOut));
+    EXPECT_EQ(1, *dataOut);
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_unlock());
+    EXPECT_EQ(0, INTEGER.numOccupied);
+
+    // pull empty
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_EMPTY, INTEGER_pull_ptr(&dataOut));
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_NOT_LOCKED, INTEGER_pull_unlock());
+    EXPECT_EQ(0, INTEGER.numOccupied);
+}
+
 /**
- * Tests NAME_reset_pullIdx functionality.
+ * Tests functionality of multiple pulls on a populated queue.
  */
-TEST_F(ThreadsafePrioQueueTest, reset_pullIdx) {
+TEST_F(ThreadsafePrioQueueTest, multiple_pull) {
+    int* dataIn = NULL;
+    int* dataOut = NULL;
+
+    // insert
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_ptr(5, &dataIn));
+    (*dataIn) = 5;
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_unlock(5, true));
+    EXPECT_EQ(1, INTEGER.numOccupied);
+    
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_ptr(1, &dataIn));
+    (*dataIn) = 1;
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_unlock(1, true));
+    EXPECT_EQ(2, INTEGER.numOccupied);
+    
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_ptr(9, &dataIn));
+    (*dataIn) = 9;
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_unlock(9, true));
+    EXPECT_EQ(3, INTEGER.numOccupied);
+    
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_ptr(4, &dataIn));
+    (*dataIn) = 4;
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_unlock(4, true));
+    EXPECT_EQ(4, INTEGER.numOccupied);
+
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_ptr(2, &dataIn));
+    (*dataIn) = 2;
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_unlock(2, true));
+    EXPECT_EQ(5, INTEGER.numOccupied);
+
+    // verify pulled in order
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_set_pullIdx(2));
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_ptr(&dataOut));
+    EXPECT_EQ(2, *dataOut);
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_unlock());
+    EXPECT_EQ(4, INTEGER.numOccupied);
+
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_ptr(&dataOut));
+    EXPECT_EQ(4, *dataOut);
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_unlock());
+    EXPECT_EQ(3, INTEGER.numOccupied);
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_ptr(&dataOut));
+    EXPECT_EQ(5, *dataOut);
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_unlock());
+    EXPECT_EQ(2, INTEGER.numOccupied);
+
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_ptr(&dataOut));
+    EXPECT_EQ(9, *dataOut);
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_unlock());
+    EXPECT_EQ(1, INTEGER.numOccupied);
+
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_ptr(&dataOut));
+    EXPECT_EQ(1, *dataOut);
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_unlock());
+    EXPECT_EQ(0, INTEGER.numOccupied);
+
+    // pull empty
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_EMPTY, INTEGER_pull_ptr(&dataOut));
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_NOT_LOCKED, INTEGER_pull_unlock());
+    EXPECT_EQ(0, INTEGER.numOccupied);
+
+    // re-insert
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_ptr(2, &dataIn));
+    (*dataIn) = 2;
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_unlock(2, true));
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_ptr(1, &dataIn));
+    (*dataIn) = 1;
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_put_unlock(1, true));
+    EXPECT_EQ(2, INTEGER.numOccupied);
+
+    // verify pulled in order
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_ptr(&dataOut));
+    EXPECT_EQ(1, *dataOut);
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_unlock());
+    EXPECT_EQ(1, INTEGER.numOccupied);
+
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_ptr(&dataOut));
+    EXPECT_EQ(2, *dataOut);
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_pull_unlock());
+    EXPECT_EQ(0, INTEGER.numOccupied);
+}
+
+/**
+ * Tests NAME_set_pullIdx functionality.
+ */
+TEST_F(ThreadsafePrioQueueTest, set_pullIdx) {
     int* dataIn = NULL;
     int* dataOut = NULL;
 
@@ -187,8 +351,10 @@ TEST_F(ThreadsafePrioQueueTest, reset_pullIdx) {
     
     // test pullIdx
     EXPECT_EQ(4, INTEGER.pullIdx);
-    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_reset_pullIdx());
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_set_pullIdx(0));
     EXPECT_EQ(0, INTEGER.pullIdx);
+    EXPECT_EQ(THREADSAFE_PRIOQUEUE_OK, INTEGER_set_pullIdx(11));
+    EXPECT_EQ(11, INTEGER.pullIdx);
 }
 
 /**

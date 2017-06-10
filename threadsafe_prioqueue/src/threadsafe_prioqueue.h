@@ -1,10 +1,15 @@
 /**
  * @file threadsafe_prioqueue.h
  *
- * The data structure defined in this macro holds only the most recent item of a
+ * The data structure defined in this macro holds only one item of a
  * given type. Types are prioritized by order, but in order to not starve low
  * priority (high index) items, the pull functionality operates in a round robin
- * style. This data structure supports any number of providers and one consumer.
+ * style until either a pull is made on an empty queue or the pull index is
+ * manually set via set_pullIdx. A pull on an empty queue resets the next pull
+ * to begin at index 0 (highest priority), while set_pullIdx specifies an the
+ * index from which the next pull will begin looking.
+ *
+ * This data structure supports any number of providers and one consumer.
  * 
  * @date    2017-05-20
  * @author  Noah Ansel
@@ -21,7 +26,7 @@
 /**
  * @file
  * @enum ThreadsafePrioQueueError
- * Error codes for functions THREADSAFE_PRIOQUEUE()
+ * Error codes for functions defined in {@link THREADSAFE_PRIOQUEUE}.
  */
 typedef enum ThreadsafePrioQueueError_enum {
     /**Routine successfully executed.*/
@@ -44,9 +49,12 @@ typedef enum ThreadsafePrioQueueError_enum {
  * structure:
  *      * NAME_init(): Initializes the queue.
  *      * NAME_put_ptr(idx, ptr): Gives provider access to specified index.
- *      * NAME_put_unlock(idx, occupied): Unlocks a specified index 
+ *      * NAME_put_unlock(idx, occupied): Unlocks a specified index and updates the occupied flag.
+ *      * NAME_pull_ptr(ptr): Gives consumer access to the next set of data.
+ *      * NAME_pull_unlock(): Unlocks the pull data.
+ *      * NAME_set_pullIdx(): Sets the next pull to begin from specified index.
  */
-#define THREADSAFE_PRIOQUEUE(NAME, TYPE, SIZE) \
+#define THREADSAFE_PRIOQUEUE(NAME, TYPE, SIZE, RESET_ON_FAILED_PULL) \
 \
 /*Container for data & metadata.*/\
 typedef struct NAME##_Node_struct {\
@@ -64,6 +72,8 @@ typedef struct NAME##_buffer_struct {\
     NAME##_Node nodes[SIZE + 1];\
     /**Index of next pull.*/\
     int pullIdx;\
+    /**Number of occupied elements of the array.*/\
+	int numOccupied;\
 } NAME##_buffer;\
 \
 /*Variable storing all data for queue.*/\
@@ -78,6 +88,7 @@ ThreadsafePrioQueueError NAME##_init() {\
         NAME.nodes[i].controlFlag = 0;\
     }\
     NAME.pullIdx = 0;\
+    NAME.numOccupied = 0;\
     return THREADSAFE_PRIOQUEUE_OK;\
 }\
 \
@@ -90,10 +101,28 @@ ThreadsafePrioQueueError NAME##_put_ptr(int idx, TYPE** ptr) {\
         /*idx locked, return error*/\
         return THREADSAFE_PRIOQUEUE_LOCKED;\
     }\
-    /*Lock & update ptr, return*/\
+    /*Lock & update ptr, change numOccupied if needed.*/\
     NAME.nodes[idx].controlFlag |= THREADSAFE_PRIOQUEUE_LOCKED_FLAG;\
     (*ptr) = NAME.nodes[idx].data;\
+    if ((NAME.nodes[idx].controlFlag & THREADSAFE_PRIOQUEUE_OCCUPIED_FLAG) != 0) {\
+    	NAME.numOccupied--;\
+    }\
     return THREADSAFE_PRIOQUEUE_OK;\
+}\
+\
+/*Determine if a given element contains data.*/\
+ThreadsafePrioQueueError NAME##_idx_occupied(int idx, char* ret) {\
+	if (idx < 0 || idx >= SIZE) {\
+	    /*Out of bounds, return error*/\
+	    return THREADSAFE_PRIOQUEUE_OUT_OF_BOUNDS;\
+	} else if ((NAME.nodes[idx].controlFlag & THREADSAFE_PRIOQUEUE_OCCUPIED_FLAG) != 0) {\
+	    /*idx is occupied*/\
+	    (*ret) = 1;\
+	} else {\
+		/*idx is not occupied*/\
+		(*ret) = 0;\
+	}\
+	return THREADSAFE_PRIOQUEUE_OK;\
 }\
 \
 /*Unlocks the specified idx and updates the occupied flag.*/\
@@ -108,9 +137,12 @@ ThreadsafePrioQueueError NAME##_put_unlock(int idx, char occupied) {\
     /*Update occupied flag*/\
     if (occupied) {\
         NAME.nodes[idx].controlFlag |= THREADSAFE_PRIOQUEUE_OCCUPIED_FLAG;\
+        NAME.numOccupied++;\
+    } else {\
+        NAME.nodes[idx].controlFlag &= ~THREADSAFE_PRIOQUEUE_OCCUPIED_FLAG;\
     }\
     /*Unlock & return*/\
-    NAME.nodes[idx].controlFlag ^= THREADSAFE_PRIOQUEUE_LOCKED_FLAG;\
+    NAME.nodes[idx].controlFlag &= ~THREADSAFE_PRIOQUEUE_LOCKED_FLAG;\
     return THREADSAFE_PRIOQUEUE_OK;\
 }\
 \
@@ -136,8 +168,9 @@ ThreadsafePrioQueueError NAME##_pull_ptr(TYPE** ptr) {\
             NAME.nodes[SIZE].data = NAME.nodes[i].data;\
             NAME.nodes[i].data = temp;\
             /*Unlock, free*/\
-            NAME.nodes[i].controlFlag ^= (THREADSAFE_PRIOQUEUE_LOCKED_FLAG | \
+            NAME.nodes[i].controlFlag &= ~(THREADSAFE_PRIOQUEUE_LOCKED_FLAG | \
                 THREADSAFE_PRIOQUEUE_OCCUPIED_FLAG);\
+            NAME.numOccupied--;\
             /*Update ptr & pullIdx, return OK*/\
             NAME.pullIdx = (i + 1) % SIZE;\
             (*ptr) = NAME.nodes[SIZE].data;\
@@ -150,7 +183,9 @@ ThreadsafePrioQueueError NAME##_pull_ptr(TYPE** ptr) {\
         }\
         if (i == firstIdx) {\
             /*Reset pullIdx, return error*/\
-            NAME.pullIdx = 0;\
+            if (RESET_ON_FAILED_PULL) {\
+                NAME.pullIdx = 0;\
+            }\
             return THREADSAFE_PRIOQUEUE_EMPTY;\
         }\
     }\
@@ -165,13 +200,14 @@ ThreadsafePrioQueueError NAME##_pull_unlock() {\
         return THREADSAFE_PRIOQUEUE_NOT_LOCKED;\
     }\
     /*Unlock & return*/\
-    NAME.nodes[SIZE].controlFlag ^= THREADSAFE_PRIOQUEUE_LOCKED_FLAG;\
+    NAME.nodes[SIZE].controlFlag &= ~THREADSAFE_PRIOQUEUE_LOCKED_FLAG;\
     return THREADSAFE_PRIOQUEUE_OK;\
 }\
 \
-/*Resets pullIdx to 0. Future pulls will begin from 0 (highest priority).*/\
-ThreadsafePrioQueueError NAME##_reset_pullIdx() {\
-    NAME.pullIdx = 0;\
+/*Sets pullIdx to set idx. Future pulls will begin from that index.*/\
+ThreadsafePrioQueueError NAME##_set_pullIdx(int idx) {\
+    NAME.pullIdx = idx;\
+    return THREADSAFE_PRIOQUEUE_OK;\
 }
 
 #endif // THREADSAFE_PRIOQUEUE_H_
