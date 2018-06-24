@@ -18,7 +18,7 @@ cmake ../../../lib/googletest;
 make;
 cp *.a ../lib;
 cd ..;
-https://github.com/NoahAnsel/C-Scrapyard.git
+
 # build test file using framework
 echo -e "${ORANGE}[Build unit tests]${NC}"
 g++ -Isrc -I../../lib/googletest/include/ -pthread ./test/neural_net_test.cc lib/libgtest_main.a lib/libgtest.a -o./neural_net_test;
