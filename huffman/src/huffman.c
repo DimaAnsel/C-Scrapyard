@@ -1,8 +1,15 @@
-#include <stdint.h>
+/**
+ * @file huffman.c
+ *
+ * Compact implementation of Huffman coding.
+ */
 
-// todo remove debug imports
-#include <string.h>
-#include <stdio.h>
+#include <stdint.h>
+#include "huffman.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Reads a value beginning at an arbitrary position.
@@ -140,143 +147,6 @@ static void put_bits(uint8_t** dst, uint8_t* start, uint8_t dst_size, uint64_t v
     }
 }
 
-static void test_put_bits(uint8_t* arr, uint8_t* temp, uint8_t start, uint8_t num, uint64_t val) {
-    printf("arr=%d start=%u num=%d val=x%x\n", (int)((void*)arr - (void*)temp), start, num, val);
-    put_bits(&arr, &start, 128, val, num);
-    printf("arr=%d start=%u\n", (int)((void*)arr - (void*)temp), start);
-    printf("contents: [");
-    while (temp != arr) {
-    	printf("x%x,", *temp);
-    	temp++;
-    }
-    if (start > 0) {
-    	printf("x%x,", *temp);
-    }
-    printf("]\n");
+#ifdef __cplusplus
 }
-
-int main(void) {
-
-    uint8_t orig[128];
-    for (int i = 0; i < 128; i++) {
-        orig[i] = 0x55 ^ (uint8_t) i;
-    }
-    uint8_t* arr, *temp;
-    uint8_t start;
-    uint8_t num;
-    uint64_t val;
-
-//    arr = orig;
-//    start = 1;
-//    num = 2;
-//    printf("arr=%d start=%u num=%u\n", (int)((void*)arr - (void*)orig), start, num);
-//    printf("ret=x%x\n", extract_bits(&arr, &start, num));
-//    num = 3;
-//    printf("arr=%d start=%u num=%u\n", (int)((void*)arr - (void*)orig), start, num);
-//    printf("ret=x%x\n", extract_bits(&arr, &start, num));
-//    num = 2;
-//    printf("arr=%d start=%u num=%u\n", (int)((void*)arr - (void*)orig), start, num);
-//    printf("ret=x%x\n", extract_bits(&arr, &start, num));
-//    printf("\n");
-//
-//    num = 4;
-//    printf("arr=%d start=%u num=%u\n", (int)((void*)arr - (void*)orig), start, num);
-//    printf("ret=x%x\n", extract_bits(&arr, &start, num));
-//    printf("arr=%d start=%u num=%u\n", (int)((void*)arr - (void*)orig), start, num);
-//    printf("ret=x%x\n", extract_bits(&arr, &start, num));
-//    printf("\n");
-//
-//    num = 5;
-//    printf("arr=%d start=%u num=%u\n", (int)((void*)arr - (void*)orig), start, num);
-//    printf("ret=x%x\n", extract_bits(&arr, &start, num));
-//    num = 3;
-//    printf("arr=%d start=%u num=%u\n", (int)((void*)arr - (void*)orig), start, num);
-//    printf("ret=x%x\n", extract_bits(&arr, &start, num));
-//    printf("\n");
-//
-//    num = 1;
-//    printf("arr=%d start=%u num=%u\n", (int)((void*)arr - (void*)orig), start, num);
-//    printf("ret=x%x\n", extract_bits(&arr, &start, num));
-//    num = 6;
-//    printf("arr=%d start=%u num=%u\n", (int)((void*)arr - (void*)orig), start, num);
-//    printf("ret=x%x\n", extract_bits(&arr, &start, num));
-//    num = 1;
-//    printf("arr=%d start=%u num=%u\n", (int)((void*)arr - (void*)orig), start, num);
-//    printf("ret=x%x\n", extract_bits(&arr, &start, num));
-//    printf("\n");
-//
-//    num = 7;
-//    printf("arr=%d start=%u num=%u\n", (int)((void*)arr - (void*)orig), start, num);
-//    printf("ret=x%x\n", extract_bits(&arr, &start, num));
-//    num = 1;
-//    printf("arr=%d start=%u num=%u\n", (int)((void*)arr - (void*)orig), start, num);
-//    printf("ret=x%x\n", extract_bits(&arr, &start, num));
-//    printf("\n");
-//
-//    printf("arr=%d start=%u num=%u\n", (int)((void*)arr - (void*)orig), start, num);
-//    printf("ret=x%x\n", extract_bits(&arr, &start, num));
-//    num = 7;
-//    printf("arr=%d start=%u num=%u\n", (int)((void*)arr - (void*)orig), start, num);
-//    printf("ret=x%x\n", extract_bits(&arr, &start, num));
-//    printf("\n");
-//
-//    num = 3;
-//    printf("arr=%d start=%u num=%u\n", (int)((void*)arr - (void*)orig), start, num);
-//    printf("ret=x%x\n", extract_bits(&arr, &start, num));
-//    num = 24-start;
-//    printf("arr=%d start=%u num=%u\n", (int)((void*)arr - (void*)orig), start, num);
-//    printf("ret=x%x\n", extract_bits(&arr, &start, num));
-//    printf("\n");
-//
-//    num = 3;
-//    printf("arr=%d start=%u num=%u\n", (int)((void*)arr - (void*)orig), start, num);
-//    printf("ret=x%x\n", extract_bits(&arr, &start, num));
-//    num = 24-start-6;
-//    printf("arr=%d start=%u num=%u\n", (int)((void*)arr - (void*)orig), start, num);
-//    printf("ret=x%x\n", extract_bits(&arr, &start, num));
-//    printf("\n");
-//
-//    printf("arr=%d start=%u\n", (int)((void*)arr - (void*)orig), start);
-
-
-//     for (uint8_t i = 1; i <= 16; i++) {
-//         printf("test %u\n", i);
-//         arr = (uint8_t*)orig + (i / 8);
-//         start = i % 8;
-//         printf("arr=%d start=%u\n", (int)((void*)arr - (void*)orig), start);
-//         printf("ret=%x\n", extract_bits(&arr, &start, i));
-//         printf("arr=%d start=%u\n", (int)((void*)arr - (void*)orig), start);
-//     }
-
-    memset(orig, 0x00, 128);
-
-    temp = arr = orig;
-    start = 0;
-    val = 0x55;
-    num = 8;
-    test_put_bits(arr, temp, start, num, val);
-
-    temp = arr = orig;
-    start = 0;
-    val = 0xAAA;
-    num = 12;
-    test_put_bits(arr, temp, start, num, val);
-
-    temp = arr = orig;
-    start = 4;
-    val = 0x555;
-    num = 12;
-    test_put_bits(arr, temp, start, num, val);
-
-    memset(orig, 0x00, 4);
-    temp = arr = orig;
-    start = 2;
-    val = 0x7FF;
-    num = 11;
-    test_put_bits(arr, temp, start, num, val);
-
-
-
-    return 0;
-}
-
+#endif
