@@ -22,64 +22,67 @@ extern "C" {
  *
  * @return Parsed value.
  */
-static HuffmanError extract_bits(uint64_t* dst, uint8_t** src, uint8_t* start, uint8_t size) {
-    if (dst == NULL || src == NULL || *src == NULL || start == NULL) {
-        return ERR_NULL_PTR;
-    }
+static HuffmanError extract_bits(uint64_t* dst,
+								 uint8_t** src,
+								 uint8_t* start,
+								 uint8_t size) {
+	if (dst == NULL || src == NULL || *src == NULL || start == NULL) {
+		return ERR_NULL_PTR;
+	}
 	if (*start >= 8 || size == 0 || size > 64) {
-        return ERR_INVALID_VALUE;
-    }
+		return ERR_INVALID_VALUE;
+	}
 
-    // return value
-    *dst = 0x0;
-    // mask for copying incomplete bytes; default to case II,III,IV
-    uint8_t mask = ((0x1 << (8 - *start)) - 1) & 0xFF;
+	// return value
+	*dst = 0x0;
+	// mask for copying incomplete bytes; default to case II,III,IV
+	uint8_t mask = ((0x1 << (8 - *start)) - 1) & 0xFF;
 
-    // offset to new arr
-    uint8_t newArrOffset = (*start + size) / 8;
-    // new start bit
-    uint8_t newStart = (*start + size) % 8;
-    // current shift val; only used in case III,IV
-    uint8_t shift = (newArrOffset > 0) ? ((newArrOffset - 1) * 8) + newStart : 0;
+	// offset to new arr
+	uint8_t newArrOffset = (*start + size) / 8;
+	// new start bit
+	uint8_t newStart = (*start + size) % 8;
+	// current shift val; only used in case III,IV
+	uint8_t shift = (newArrOffset > 0) ? ((newArrOffset - 1) * 8) + newStart : 0;
 
-    // use this for further ops
-    uint8_t* tempPtr = *src;
+	// use this for further ops
+	uint8_t* tempPtr = *src;
 
-    // must be done after init mask
-    (*src) += newArrOffset;
-    (*start) = newStart;
+	// must be done after init mask
+	(*src) += newArrOffset;
+	(*start) = newStart;
 
-    if (newStart != 0) {
-        if (newArrOffset == 0) { // case I: single byte, non-even end
-            // copy & return
-            mask = (mask ^ ((0x1 << (8 - newStart))- 1)) & 0xFF;
-            *dst = (*tempPtr & mask) >> (8 - newStart); // shift right to end
-        } else { // case III: multi-byte, non-even end
-            *dst = (*tempPtr & mask) << shift;
-            do {
-                shift -= 8;
-                tempPtr++;
-                *dst |= (*tempPtr & 0xFF) << shift;
-            } while (shift > 7);
-            // copy end
-            mask = (0xFF ^ ((0x1 << (8 - newStart)) - 1)) & 0xFF;
-            tempPtr++;
-            *dst |= ((*tempPtr) & mask) >> (8 - newStart); // shift right to end
-        }
-    } else {
-        if (newArrOffset == 1) { // case II: single byte, even end
-            // copy & return
-            *dst = *tempPtr & mask; // no shift, already in correct location
-        } else { // case IV: multi-byte, even end
-            *dst = (*tempPtr & mask) << shift; // first byte
-            do {
-                shift -= 8;
-                tempPtr++;
-                *dst |= (*tempPtr & 0xFF) << shift;
-            } while (shift > 7);
-        }
-    }
-    return ERR_NO_ERR;
+	if (newStart != 0) {
+		if (newArrOffset == 0) { // case I: single byte, non-even end
+			// copy & return
+			mask = (mask ^ ((0x1 << (8 - newStart)) - 1)) & 0xFF;
+			*dst = (*tempPtr & mask) >> (8 - newStart); // shift right to end
+		} else { // case III: multi-byte, non-even end
+			*dst = (*tempPtr & mask) << shift;
+			do {
+				shift -= 8;
+				tempPtr++;
+				*dst |= (*tempPtr & 0xFF) << shift;
+			} while (shift > 7);
+			// copy end
+			mask = (0xFF ^ ((0x1 << (8 - newStart)) - 1)) & 0xFF;
+			tempPtr++;
+			*dst |= ((*tempPtr) & mask) >> (8 - newStart); // shift right to end
+		}
+	} else {
+		if (newArrOffset == 1) { // case II: single byte, even end
+			// copy & return
+			*dst = *tempPtr & mask; // no shift, already in correct location
+		} else { // case IV: multi-byte, even end
+			*dst = (*tempPtr & mask) << shift; // first byte
+			do {
+				shift -= 8;
+				tempPtr++;
+				*dst |= (*tempPtr & 0xFF) << shift;
+			} while (shift > 7);
+		}
+	}
+	return ERR_NO_ERR;
 }
 
 /**
@@ -91,7 +94,11 @@ static HuffmanError extract_bits(uint64_t* dst, uint8_t** src, uint8_t* start, u
  * @param[in] size Number of bits to write. Range 1-64.
  * @param[in] val Value to be written.
  */
-static HuffmanError put_bits(uint8_t** dst, uint8_t* start, uint8_t dst_size, uint64_t val, uint8_t size) {
+static HuffmanError put_bits(uint8_t** dst,
+							 uint8_t* start,
+							 uint8_t dst_size,
+							 uint64_t val,
+							 uint8_t size) {
 	if (dst == NULL || *dst == NULL || start == NULL) {
 		return ERR_NULL_PTR;
 	}
@@ -102,55 +109,55 @@ static HuffmanError put_bits(uint8_t** dst, uint8_t* start, uint8_t dst_size, ui
 		return ERR_INSUFFICIENT_SPACE;
 	}
 
-    // offset to new arr
-    uint8_t newArrOffset = (*start + size) / 8;
-    // new start bit
-    uint8_t newStart = (*start + size) % 8;
-    // current shift val; only used in case III,IV
-    uint8_t shift = (newArrOffset > 0) ? size - (8 - *start) : 0;
-    // mask
-    uint8_t mask = 0xFF ^ ((1 << (8 - *start)) - 1);
+	// offset to new arr
+	uint8_t newArrOffset = (*start + size) / 8;
+	// new start bit
+	uint8_t newStart = (*start + size) % 8;
+	// current shift val; only used in case III,IV
+	uint8_t shift = (newArrOffset > 0) ? size - (8 - *start) : 0;
+	// mask
+	uint8_t mask = 0xFF ^ ((1 << (8 - *start)) - 1);
 
-    // verify have space to write data
-    if (newArrOffset > dst_size || (newArrOffset == dst_size && newStart > 0)) {
-    	return ERR_INSUFFICIENT_SPACE;
-    }
+	// verify have space to write data
+	if (newArrOffset > dst_size || (newArrOffset == dst_size && newStart > 0)) {
+		return ERR_INSUFFICIENT_SPACE;
+	}
 
-    // clip val to bottom [size] bits
-    val = val & ((1 << size) - 1);
+	// clip val to bottom [size] bits
+	val = val & ((1 << size) - 1);
 
-    // use this for further ops
-    uint8_t* tempPtr = *dst;
+	// use this for further ops
+	uint8_t* tempPtr = *dst;
 
-    // must be done after init mask
-    (*dst) += newArrOffset;
-    (*start) = newStart;
+	// must be done after init mask
+	(*dst) += newArrOffset;
+	(*start) = newStart;
 
-    if (newArrOffset == 0) {
-        // Case I: single byte, non-even end
-    	*tempPtr = ((*tempPtr) & mask) | (val << (8 - newStart));
-    	return ERR_NO_ERR;
-    } else if (newArrOffset == 1 && newStart == 0) {
-    	// Case II: single byte, even end
-    	*tempPtr = ((*tempPtr) & mask) | val;
-    	return ERR_NO_ERR;
-    }
+	if (newArrOffset == 0) {
+		// Case I: single byte, non-even end
+		*tempPtr = ((*tempPtr) & mask) | (val << (8 - newStart));
+		return ERR_NO_ERR;
+	} else if (newArrOffset == 1 && newStart == 0) {
+		// Case II: single byte, even end
+		*tempPtr = ((*tempPtr) & mask) | val;
+		return ERR_NO_ERR;
+	}
 
-    // Case III/IV: multi-byte
-    *tempPtr = ((*tempPtr) & mask) | (val >> shift);
+	// Case III/IV: multi-byte
+	*tempPtr = ((*tempPtr) & mask) | (val >> shift);
 
-    while (shift > 7) {
-    	shift -= 8;
-    	tempPtr++;
-    	*tempPtr = (val >> shift) & 0xFF;
-    }
+	while (shift > 7) {
+		shift -= 8;
+		tempPtr++;
+		*tempPtr = (val >> shift) & 0xFF;
+	}
 
-    // Case IV: multi-byte, non-even end
-    if (newStart > 0) {
-    	tempPtr++;
-    	*tempPtr = (val << (8 - newStart)) & 0xFF;
-    }
-    return ERR_NO_ERR;
+	// Case IV: multi-byte, non-even end
+	if (newStart > 0) {
+		tempPtr++;
+		*tempPtr = (val << (8 - newStart)) & 0xFF;
+	}
+	return ERR_NO_ERR;
 }
 
 #ifdef __cplusplus
