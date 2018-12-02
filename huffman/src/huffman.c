@@ -52,35 +52,31 @@ static HuffmanError extract_bits(uint64_t* dst,
 	(*src) += newArrOffset;
 	(*start) = newStart;
 
+	if (newArrOffset == 0) {
+		// Case I: single byte, non-even end
+		mask = (mask ^ ((0x1 << (8 - newStart)) - 1)) & 0xFF;
+		*dst = (*tempPtr & mask) >> (8 - newStart); // shift right to end
+		return ERR_NO_ERR;
+	} else if (newArrOffset == 1 && newStart == 0) {
+		// Case II: single byte, even end
+		*dst = *tempPtr & mask; // no shift, already in correct location
+		return ERR_NO_ERR;
+	}
+
+	// Case III/IV: multi-byte
+	*dst = ((uint64_t)(*tempPtr & mask)) << shift; // first byte
+	while (shift > 7) {
+		shift -= 8;
+		tempPtr++;
+		*dst |= ((uint64_t)(*tempPtr & 0xFF)) << shift;
+	}
+
+	// Case IV: non-even end
 	if (newStart != 0) {
-		if (newArrOffset == 0) { // case I: single byte, non-even end
-			// copy & return
-			mask = (mask ^ ((0x1 << (8 - newStart)) - 1)) & 0xFF;
-			*dst = (*tempPtr & mask) >> (8 - newStart); // shift right to end
-		} else { // case III: multi-byte, non-even end
-			*dst = (*tempPtr & mask) << shift;
-			do {
-				shift -= 8;
-				tempPtr++;
-				*dst |= (*tempPtr & 0xFF) << shift;
-			} while (shift > 7);
-			// copy end
-			mask = (0xFF ^ ((0x1 << (8 - newStart)) - 1)) & 0xFF;
-			tempPtr++;
-			*dst |= ((*tempPtr) & mask) >> (8 - newStart); // shift right to end
-		}
-	} else {
-		if (newArrOffset == 1) { // case II: single byte, even end
-			// copy & return
-			*dst = *tempPtr & mask; // no shift, already in correct location
-		} else { // case IV: multi-byte, even end
-			*dst = (*tempPtr & mask) << shift; // first byte
-			do {
-				shift -= 8;
-				tempPtr++;
-				*dst |= (*tempPtr & 0xFF) << shift;
-			} while (shift > 7);
-		}
+		// copy end
+		mask = (0xFF ^ ((0x1 << (8 - newStart)) - 1)) & 0xFF;
+		tempPtr++;
+		*dst |= ((*tempPtr) & mask) >> (8 - newStart); // shift right to end
 	}
 	return ERR_NO_ERR;
 }
