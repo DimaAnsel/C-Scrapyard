@@ -5,6 +5,8 @@
  */
 
 #include <stdint.h>
+#include <stddef.h>
+#include <stdbool.h>
 #include "huffman.h"
 
 #ifdef __cplusplus
@@ -20,13 +22,16 @@ extern "C" {
  *
  * @return Parsed value.
  */
-static uint64_t extract_bits(uint8_t** src, uint8_t* start, uint8_t size) {
-    if (*start >= 8 || size == 0 || size > 64) {
-        printf("invalid start or size\n");
-        return 0x0;
+static HuffmanError extract_bits(uint64_t* dst, uint8_t** src, uint8_t* start, uint8_t size) {
+    if (dst == NULL || src == NULL || *src == NULL || start == NULL) {
+        return ERR_NULL_PTR;
     }
+	if (*start >= 8 || size == 0 || size > 64) {
+        return ERR_INVALID_VALUE;
+    }
+
     // return value
-    uint64_t toRet = 0x0;
+    *dst = 0x0;
     // mask for copying incomplete bytes; default to case II,III,IV
     uint8_t mask = ((0x1 << (8 - *start)) - 1) & 0xFF;
 
@@ -48,36 +53,33 @@ static uint64_t extract_bits(uint8_t** src, uint8_t* start, uint8_t size) {
         if (newArrOffset == 0) { // case I: single byte, non-even end
             // copy & return
             mask = (mask ^ ((0x1 << (8 - newStart))- 1)) & 0xFF;
-            toRet = (*tempPtr & mask) >> (8 - newStart); // shift right to end
-            return toRet;
+            *dst = (*tempPtr & mask) >> (8 - newStart); // shift right to end
         } else { // case III: multi-byte, non-even end
-            toRet = (*tempPtr & mask) << shift;
+            *dst = (*tempPtr & mask) << shift;
             do {
                 shift -= 8;
                 tempPtr++;
-                toRet |= (*tempPtr & 0xFF) << shift;
+                *dst |= (*tempPtr & 0xFF) << shift;
             } while (shift > 7);
             // copy end
             mask = (0xFF ^ ((0x1 << (8 - newStart)) - 1)) & 0xFF;
             tempPtr++;
-            toRet |= ((*tempPtr) & mask) >> (8 - newStart); // shift right to end
-            return toRet;
+            *dst |= ((*tempPtr) & mask) >> (8 - newStart); // shift right to end
         }
     } else {
         if (newArrOffset == 1) { // case II: single byte, even end
             // copy & return
-            toRet = *tempPtr & mask; // no shift, already in correct location
-            return toRet;
+            *dst = *tempPtr & mask; // no shift, already in correct location
         } else { // case IV: multi-byte, even end
-            toRet = (*tempPtr & mask) << shift; // first byte
+            *dst = (*tempPtr & mask) << shift; // first byte
             do {
                 shift -= 8;
                 tempPtr++;
-                toRet |= (*tempPtr & 0xFF) << shift;
+                *dst |= (*tempPtr & 0xFF) << shift;
             } while (shift > 7);
-            return toRet;
         }
     }
+    return ERR_NO_ERR;
 }
 
 /**
@@ -89,13 +91,15 @@ static uint64_t extract_bits(uint8_t** src, uint8_t* start, uint8_t size) {
  * @param[in] size Number of bits to write. Range 1-64.
  * @param[in] val Value to be written.
  */
-static void put_bits(uint8_t** dst, uint8_t* start, uint8_t dst_size, uint64_t val, uint8_t size) {
-	if (*start >= 8) {
-		printf("start bad\n");
+static HuffmanError put_bits(uint8_t** dst, uint8_t* start, uint8_t dst_size, uint64_t val, uint8_t size) {
+	if (dst == NULL || *dst == NULL || start == NULL) {
+		return ERR_NULL_PTR;
 	}
-	if (*start >= 8 || size == 0 || size > 64 || dst_size == 0) {
-	    printf("invalid start or size\n");
-	    return;
+	if (*start >= 8 || size == 0 || size > 64) {
+		return ERR_INVALID_VALUE;
+	}
+	if (dst_size == 0) {
+		return ERR_INSUFFICIENT_SPACE;
 	}
 
     // offset to new arr
@@ -103,13 +107,13 @@ static void put_bits(uint8_t** dst, uint8_t* start, uint8_t dst_size, uint64_t v
     // new start bit
     uint8_t newStart = (*start + size) % 8;
     // current shift val; only used in case III,IV
-    uint8_t shift = (newArrOffset > 0) ? size - (8 - *start): 0;
+    uint8_t shift = (newArrOffset > 0) ? size - (8 - *start) : 0;
     // mask
     uint8_t mask = 0xFF ^ ((1 << (8 - *start)) - 1);
 
     // verify have space to write data
     if (newArrOffset > dst_size || (newArrOffset == dst_size && newStart > 0)) {
-    	return;
+    	return ERR_INSUFFICIENT_SPACE;
     }
 
     // clip val to bottom [size] bits
@@ -125,15 +129,16 @@ static void put_bits(uint8_t** dst, uint8_t* start, uint8_t dst_size, uint64_t v
     if (newArrOffset == 0) {
         // Case I: single byte, non-even end
     	*tempPtr = ((*tempPtr) & mask) | (val << (8 - newStart));
-    	return;
+    	return ERR_NO_ERR;
     } else if (newArrOffset == 1 && newStart == 0) {
     	// Case II: single byte, even end
     	*tempPtr = ((*tempPtr) & mask) | val;
-    	return;
+    	return ERR_NO_ERR;
     }
 
     // Case III/IV: multi-byte
     *tempPtr = ((*tempPtr) & mask) | (val >> shift);
+
     while (shift > 7) {
     	shift -= 8;
     	tempPtr++;
@@ -145,6 +150,7 @@ static void put_bits(uint8_t** dst, uint8_t* start, uint8_t dst_size, uint64_t v
     	tempPtr++;
     	*tempPtr = (val << (8 - newStart)) & 0xFF;
     }
+    return ERR_NO_ERR;
 }
 
 #ifdef __cplusplus
