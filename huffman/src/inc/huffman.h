@@ -15,11 +15,13 @@ extern "C" {
  * Return codes for functions in {@link huffman.c}.
  */
 typedef enum HuffmanError_enum {
+	/**No error occurred.*/
 	ERR_NO_ERR,
+	/**Function received null parameter/value when expecting non-null.*/
 	ERR_NULL_PTR,
+	/**Function received an invalid parameter value.*/
 	ERR_INVALID_VALUE,
-	ERR_INVALID_SIZE,
-	ERR_INVALID_INDEX,
+	/**The destination does not contain enough space to store function result.*/
 	ERR_INSUFFICIENT_SPACE
 } HuffmanError;
 

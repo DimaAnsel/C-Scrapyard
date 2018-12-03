@@ -1,7 +1,7 @@
 /**
- * @file swarm_test.cc
+ * @file huffman_test.cc
  *
- * Unit tests to verify functionality of {@link swarm.c}.
+ * Unit tests to verify functionality of {@link huffman.c}.
  * 
  * @date    2017-08-23
  * @author  Noah Ansel
@@ -286,7 +286,6 @@ TEST_F(HuffmanTest, extract_bits_case3) {
 	EXPECT_EQ(0x3, result);
 	EXPECT_EQ(testArr + 8, testPtr);
 	EXPECT_EQ(1, start);
-
 }
 
 /**
@@ -302,6 +301,88 @@ TEST_F(HuffmanTest, extract_bits_case4) {
 	for (uint8_t i = 0; i < 128; i++) {
 		testArr[i] = (((0x55 ^ i) & 0xF) << 4) | (i & 0xF);
 	}
+
+	// start 0, 2 bytes
+	testPtr = testArr;
+	start = 0;
+	size = 16;
+	EXPECT_EQ(ERR_NO_ERR, extract_bits(&result, &testPtr, &start, size));
+	EXPECT_EQ(0x5041, result);
+	EXPECT_EQ(testArr + 2, testPtr);
+	EXPECT_EQ(0, start);
+
+
+	// start 0, full size
+	testPtr = testArr;
+	start = 0;
+	size = 16;
+	EXPECT_EQ(ERR_NO_ERR, extract_bits(&result, &testPtr, &start, size));
+	EXPECT_EQ(0x5041, result);
+	EXPECT_EQ(testArr + 2, testPtr);
+	EXPECT_EQ(0, start);
+
+	// start 1, 4 bytes
+	testPtr = testArr + 8;
+	start = 1;
+	size = 31;
+	EXPECT_EQ(ERR_NO_ERR, extract_bits(&result, &testPtr, &start, size));
+	EXPECT_EQ(0x58C9FAEB, result);
+	EXPECT_EQ(testArr + 12, testPtr);
+	EXPECT_EQ(0, start);
+
+	// start 2, 3 bytes
+	testPtr = testArr + 2;
+	start = 2;
+	size = 22;
+	EXPECT_EQ(ERR_NO_ERR, extract_bits(&result, &testPtr, &start, size));
+	EXPECT_EQ(0x326314, result);
+	EXPECT_EQ(testArr + 5, testPtr);
+	EXPECT_EQ(0, start);
+
+	// start 3, 5 bytes
+	testPtr = testArr;
+	start = 3;
+	size = 37;
+	EXPECT_EQ(ERR_NO_ERR, extract_bits(&result, &testPtr, &start, size));
+	EXPECT_EQ(0x1041726314, result);
+	EXPECT_EQ(testArr + 5, testPtr);
+	EXPECT_EQ(0, start);
+
+	// start 4, 7 bytes
+	testPtr = testArr + 3;
+	start = 4;
+	size = 52;
+	EXPECT_EQ(ERR_NO_ERR, extract_bits(&result, &testPtr, &start, size));
+	EXPECT_EQ(0x314053627D8C9, result);
+	EXPECT_EQ(testArr + 10, testPtr);
+	EXPECT_EQ(0, start);
+
+	// start 6, 6 bytes
+	testPtr = testArr + 1;
+	start = 6;
+	size = 42;
+	EXPECT_EQ(ERR_NO_ERR, extract_bits(&result, &testPtr, &start, size));
+	EXPECT_EQ(0x17263140536, result);
+	EXPECT_EQ(testArr + 7, testPtr);
+	EXPECT_EQ(0, start);
+
+	// start 7, 2 bytes
+	testPtr = testArr + 3;
+	start = 7;
+	size = 9;
+	EXPECT_EQ(ERR_NO_ERR, extract_bits(&result, &testPtr, &start, size));
+	EXPECT_EQ(0x114, result);
+	EXPECT_EQ(testArr + 5, testPtr);
+	EXPECT_EQ(0, start);
+
+	// start 7, 8 bytes
+	testPtr = testArr + 2;
+	start = 7;
+	size = 57;
+	EXPECT_EQ(ERR_NO_ERR, extract_bits(&result, &testPtr, &start, size));
+	EXPECT_EQ(0x06314053627D8C9, result);
+	EXPECT_EQ(testArr + 10, testPtr);
+	EXPECT_EQ(0, start);
 }
 
 /**
@@ -353,12 +434,92 @@ TEST_F(HuffmanTest, put_bits_case1) {
  * Validates output for {@link put_bits} for case 2 (single byte, even end).
  */
 TEST_F(HuffmanTest, put_bits_case2) {
-	uint8_t testArr[128];
-	uint8_t* testPtr = testArr;
-	uint8_t* nullTest = NULL;
-	uint8_t size = 3;
-	uint8_t start = 3;
-	uint64_t value = 0;
+	uint8_t testArr[16];
+	uint8_t* testPtr;
+	uint8_t size;
+	uint8_t start;
+	uint64_t value;
+	uint8_t i;
+
+	// start 0
+	testPtr = testArr;
+	start = 0;
+	size = 8;
+	value = 0x96;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	EXPECT_EQ(0x96, testArr[0]);
+	EXPECT_EQ(testArr + 1, testPtr);
+	EXPECT_EQ(0, start);
+
+	// start 1, bit 0 = 0, clip value bits
+	testArr[0] = 0x00;
+	testPtr = testArr;
+	start = 1;
+	size = 7;
+	value = 0xB5;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	EXPECT_EQ(0x35, testArr[0]);
+	EXPECT_EQ(testArr + 1, testPtr);
+	EXPECT_EQ(0, start);
+
+	// start 1, bit 0 = 1
+	testArr[0] = 0xFF;
+	testPtr = testArr;
+	start = 1;
+	size = 7;
+	value = 0x35;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	EXPECT_EQ(0xB5, testArr[0]);
+	EXPECT_EQ(testArr + 1, testPtr);
+	EXPECT_EQ(0, start);
+
+	// start 2
+	testArr[0] = 0x70;
+	testPtr = testArr;
+	start = 2;
+	size = 6;
+	value = 0x15;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	EXPECT_EQ(0x55, testArr[0]);
+	EXPECT_EQ(testArr + 1, testPtr);
+	EXPECT_EQ(0, start);
+
+	// start 3, clip value
+	testArr[0] = 0x39;
+	testPtr = testArr;
+	start = 3;
+	size = 5;
+	value = 0xFED06;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	EXPECT_EQ(0x26, testArr[0]);
+	EXPECT_EQ(testArr + 1, testPtr);
+	EXPECT_EQ(0, start);
+
+	// start 4, overwrite
+	testArr[0] = 0xC3;
+	testPtr = testArr;
+	start = 4;
+	size = 4;
+	value = 0x2;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	EXPECT_EQ(0xC2, testArr[0]);
+	EXPECT_EQ(testArr + 1, testPtr);
+	EXPECT_EQ(0, start);
+
+	// start 5, overwrite
+	testArr[0] = 0x06;
+	testPtr = testArr;
+	start = 5;
+	size = 3;
+	value = 0xA;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	EXPECT_EQ(0x02, testArr[0]);
+	EXPECT_EQ(testArr + 1, testPtr);
+	EXPECT_EQ(0, start);
+
+	// start 6
+
+	// start 7
 }
 
 /**

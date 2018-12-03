@@ -49,3 +49,4 @@ Temporary Items
 # Custom ignores
 lib/
 doxygen/
+*/test-build/

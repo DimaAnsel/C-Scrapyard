@@ -16,11 +16,14 @@ extern "C" {
 /**
  * Reads a value beginning at an arbitrary position.
  *
- * @param[in,out] arr Pointer to byte from which to read. Updated to first byte of following section.
+ * @param[out]    dst   Destination for parsed value. Will be completely overwritten regardless of size.
+ * @param[in,out] src   Pointer to byte from which to read. Updated to first byte of following section.
  * @param[in,out] start Bit from which to start. Updated to bit of following section. Range 0-7.
- * @param[in] size Number of bits to read. Range 1-64.
+ * @param[in]     size  Number of bits to read. Range 1-64.
  *
- * @return Parsed value.
+ * @return {@link ERR_NO_ERR} if no error occurred.\n
+ * 		   {@link ERR_NULL_PTR} if dst, src, or start are null or if value of src is null.\n
+ * 		   {@link ERR_INVALID_VALUE} if start or size out of accepted range.
  */
 static HuffmanError extract_bits(uint64_t* dst,
 								 uint8_t** src,
@@ -84,11 +87,16 @@ static HuffmanError extract_bits(uint64_t* dst,
 /**
  * Puts a value into an arbitrary position.
  *
- * @param[in,out] dst Pointer to first byte in which to set data. Updated to first byte of following section.
- * @param[in,out] start Bit from which to start. Updated to first bit of following section. Range 0-7.
- * @param[in] dst_size Number of bytes free in dst.
- * @param[in] size Number of bits to write. Range 1-64.
- * @param[in] val Value to be written.
+ * @param[in,out] dst      Pointer to first byte in which to set data. Updated to first byte of following section.
+ * @param[in,out] start    Bit from which to start. Updated to first bit of following section. Range 0-7.
+ * @param[in]     dst_size Number of bytes free in dst.
+ * @param[in]     size     Number of bits to write. Range 1-64.
+ * @param[in]     val      Value to be written.
+ *
+ * @return {@link ERR_NO_ERR} if no error occurred.\n
+ * 		   {@link ERR_NULL_PTR} if dst or start are null or if value of dst is null.\n
+ * 		   {@link ERR_INVALID_VALUE} if start or size out of accepted range.\n
+ * 		   {@link ERR_INSUFFICIENT_SPACE} if function requires more than dst_size bytes to write data.
  */
 static HuffmanError put_bits(uint8_t** dst,
 							 uint8_t* start,

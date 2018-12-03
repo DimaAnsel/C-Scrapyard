@@ -434,7 +434,7 @@ EXTRACT_PACKAGE        = NO
 # included in the documentation.
 # The default value is: NO.
 
-EXTRACT_STATIC         = NO
+EXTRACT_STATIC         = YES
 
 # If the EXTRACT_LOCAL_CLASSES tag is set to YES, classes (and structs) defined
 # locally in source files will be included in the documentation. If set to NO,
@@ -773,6 +773,8 @@ WARN_LOGFILE           =
 
 INPUT                  = threadsafe_prioqueue/src \
                          threadsafe_prioqueue/test \
+                         huffman/src \
+                         huffman/test \
                          README.md
 
 # This tag can be used to specify the character encoding of the source files
@@ -804,7 +806,7 @@ FILE_PATTERNS          =
 # be searched for input files as well.
 # The default value is: NO.
 
-RECURSIVE              = NO
+RECURSIVE              = YES
 
 # The EXCLUDE tag can be used to specify files and/or directories that should be
 # excluded from the INPUT source files. This way you can easily exclude a
