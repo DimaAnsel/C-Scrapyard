@@ -597,50 +597,121 @@ TEST_F(HuffmanTest, put_bits_case4) {
 	EXPECT_EQ(0, start);
 
 	// start 1, 7 bytes
+	testArr[0] = 0x46;
+	testArr[6] = 0xF0;
 	testPtr = testArr;
 	start = 1;
 	size = 55;
-	value = 0x0;
+	value = 0xE2194DAF1E3508;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	EXPECT_EQ(0x62, testArr[0]);
+	EXPECT_EQ(0x19, testArr[1]);
+	EXPECT_EQ(0x4D, testArr[2]);
+	EXPECT_EQ(0xAF, testArr[3]);
+	EXPECT_EQ(0x1E, testArr[4]);
+	EXPECT_EQ(0x35, testArr[5]);
+	EXPECT_EQ(0x08, testArr[6]);
+	EXPECT_EQ(testArr + 7, testPtr);
+	EXPECT_EQ(0, start);
 
 	// start 2, 5 bytes
+	testArr[0] = 0x81;
 	testPtr = testArr;
 	start = 2;
 	size = 38;
-	value = 0x0;
+	value = 0x29ECA7F031;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	EXPECT_EQ(0xA9, testArr[0]);
+	EXPECT_EQ(0xEC, testArr[1]);
+	EXPECT_EQ(0xA7, testArr[2]);
+	EXPECT_EQ(0xF0, testArr[3]);
+	EXPECT_EQ(0x31, testArr[4]);
+	EXPECT_EQ(testArr + 5, testPtr);
+	EXPECT_EQ(0, start);
+
 
 	// start 3, 2 bytes
+	testArr[0] = 0xF3;
+	testArr[1] = 0x01;
 	testPtr = testArr;
 	start = 3;
 	size = 13;
-	value = 0x0;
+	value = 0x0C52;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	EXPECT_EQ(0xEC, testArr[0]);
+	EXPECT_EQ(0x52, testArr[1]);
+	EXPECT_EQ(testArr + 2, testPtr);
+	EXPECT_EQ(0, start);
 
 	// start 4, 4 bytes
+	testArr[0] = 0x55;
 	testPtr = testArr;
 	start = 4;
 	size = 28;
-	value = 0x0;
+	value = 0x6B54D3C;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	EXPECT_EQ(0x56, testArr[0]);
+	EXPECT_EQ(0xB5, testArr[1]);
+	EXPECT_EQ(0x4D, testArr[2]);
+	EXPECT_EQ(0x3C, testArr[3]);
+	EXPECT_EQ(testArr + 4, testPtr);
+	EXPECT_EQ(0, start);
 
-	// start 5, 3 bytes
-	testPtr = testArr;
+	// start 5, 3 bytes, start mid-array
+	testArr[10] = 0x66;
+	testPtr = testArr + 10;
 	start = 5;
 	size = 19;
-	value = 0x0;
+	value = 0x194DEA;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	EXPECT_EQ(0x61, testArr[10]);
+	EXPECT_EQ(0x4D, testArr[11]);
+	EXPECT_EQ(0xEA, testArr[12]);
+	EXPECT_EQ(testArr + 13, testPtr);
+	EXPECT_EQ(0, start);
 
 	// start 6, 2 byte
+	testArr[0] = 0xE6;
 	testPtr = testArr;
 	start = 6;
 	size = 10;
-	value = 0x0;
+	value = 0x12A;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	EXPECT_EQ(0xE5, testArr[0]);
+	EXPECT_EQ(0x2A, testArr[1]);
+	EXPECT_EQ(testArr + 2, testPtr);
+	EXPECT_EQ(0, start);
 
-	// start 7, 5 bytes
-	testPtr = testArr;
+	// start 7, 5 bytes, clip, start mid-array
+	testArr[3] = 0x38;
+	testPtr = testArr + 3;
 	start = 7;
 	size = 33;
-	value = 0x0;
+	value = 0x85EAC5F684;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 13, value, size));
+	EXPECT_EQ(0x39, testArr[3]);
+	EXPECT_EQ(0xEA, testArr[4]);
+	EXPECT_EQ(0xC5, testArr[5]);
+	EXPECT_EQ(0xF6, testArr[6]);
+	EXPECT_EQ(0x84, testArr[7]);
+	EXPECT_EQ(testArr + 8, testPtr);
+	EXPECT_EQ(0, start);
 
 	// start 7, 8 bytes
+	testArr[0] = 0xF3;
 	testPtr = testArr;
 	start = 7;
 	size = 57;
-	value = 0x0;
+	value = 0x03A5B9E8C1D7368;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	EXPECT_EQ(0xF2, testArr[0]);
+	EXPECT_EQ(0x3A, testArr[1]);
+	EXPECT_EQ(0x5B, testArr[2]);
+	EXPECT_EQ(0x9E, testArr[3]);
+	EXPECT_EQ(0x8C, testArr[4]);
+	EXPECT_EQ(0x1D, testArr[5]);
+	EXPECT_EQ(0x73, testArr[6]);
+	EXPECT_EQ(0x68, testArr[7]);
+	EXPECT_EQ(testArr + 8, testPtr);
+	EXPECT_EQ(0, start);
 }
