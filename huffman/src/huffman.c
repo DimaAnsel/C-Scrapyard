@@ -128,7 +128,9 @@ static HuffmanError put_bits(uint8_t** dst,
 	}
 
 	// clip val to bottom [size] bits
-	val = val & ((1 << size) - 1);
+	if (size < 64) {
+		val = val & (((uint64_t)1 << size) - 1);
+	}
 
 	// use this for further ops
 	uint8_t* tempPtr = *dst;

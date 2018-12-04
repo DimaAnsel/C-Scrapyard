@@ -518,8 +518,26 @@ TEST_F(HuffmanTest, put_bits_case2) {
 	EXPECT_EQ(0, start);
 
 	// start 6
+	testArr[0] = 0xC9;
+	testPtr = testArr;
+	start = 6;
+	size = 2;
+	value = 0x2;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	EXPECT_EQ(0xCA, testArr[0]);
+	EXPECT_EQ(testArr + 1, testPtr);
+	EXPECT_EQ(0, start);
 
 	// start 7
+	testArr[0] = 0xFF;
+	testPtr = testArr;
+	start = 7;
+	size = 1;
+	value = 0x0;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	EXPECT_EQ(0xFE, testArr[0]);
+	EXPECT_EQ(testArr + 1, testPtr);
+	EXPECT_EQ(0, start);
 }
 
 /**
@@ -538,10 +556,91 @@ TEST_F(HuffmanTest, put_bits_case3) {
  * Validates output for {@link put_bits} for case 4 (multi-byte, even end).
  */
 TEST_F(HuffmanTest, put_bits_case4) {
-	uint8_t testArr[128];
-	uint8_t* testPtr = testArr;
-	uint8_t* nullTest = NULL;
+	uint8_t testArr[16];
+	uint8_t* testPtr;
+	uint8_t* nullTest;
 	uint8_t size = 3;
 	uint8_t start = 3;
 	uint64_t value = 0;
+
+	// start 0, 6 bytes, overwrite
+	memset(testArr, 0xFF, 16);
+	testPtr = testArr;
+	start = 0;
+	size = 48;
+	value = 0x1574689AEB6C;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	EXPECT_EQ(0x15, testArr[0]);
+	EXPECT_EQ(0x74, testArr[1]);
+	EXPECT_EQ(0x68, testArr[2]);
+	EXPECT_EQ(0x9A, testArr[3]);
+	EXPECT_EQ(0xEB, testArr[4]);
+	EXPECT_EQ(0x6C, testArr[5]);
+	EXPECT_EQ(testArr + 6, testPtr);
+	EXPECT_EQ(0, start);
+
+	// start 0, full size, limited size
+	testPtr = testArr;
+	start = 0;
+	size = 64;
+	value = 0xFEDCBA9876543210;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 8, value, size));
+	EXPECT_EQ(0xFE, testArr[0]);
+	EXPECT_EQ(0xDC, testArr[1]);
+	EXPECT_EQ(0xBA, testArr[2]);
+	EXPECT_EQ(0x98, testArr[3]);
+	EXPECT_EQ(0x76, testArr[4]);
+	EXPECT_EQ(0x54, testArr[5]);
+	EXPECT_EQ(0x32, testArr[6]);
+	EXPECT_EQ(0x10, testArr[7]);
+	EXPECT_EQ(testArr + 8, testPtr);
+	EXPECT_EQ(0, start);
+
+	// start 1, 7 bytes
+	testPtr = testArr;
+	start = 1;
+	size = 55;
+	value = 0x0;
+
+	// start 2, 5 bytes
+	testPtr = testArr;
+	start = 2;
+	size = 38;
+	value = 0x0;
+
+	// start 3, 2 bytes
+	testPtr = testArr;
+	start = 3;
+	size = 13;
+	value = 0x0;
+
+	// start 4, 4 bytes
+	testPtr = testArr;
+	start = 4;
+	size = 28;
+	value = 0x0;
+
+	// start 5, 3 bytes
+	testPtr = testArr;
+	start = 5;
+	size = 19;
+	value = 0x0;
+
+	// start 6, 2 byte
+	testPtr = testArr;
+	start = 6;
+	size = 10;
+	value = 0x0;
+
+	// start 7, 5 bytes
+	testPtr = testArr;
+	start = 7;
+	size = 33;
+	value = 0x0;
+
+	// start 7, 8 bytes
+	testPtr = testArr;
+	start = 7;
+	size = 57;
+	value = 0x0;
 }
