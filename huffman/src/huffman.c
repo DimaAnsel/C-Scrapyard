@@ -13,6 +13,12 @@
 extern "C" {
 #endif
 
+/**
+ * Enables throwing of {@link HuffmanError} to calling function if error
+ * occurred.
+ *
+ * @param[in] f Function to be called.
+ */
 #define THROW_ERR(f) err = (f); if (err != ERR_NO_ERR) { return err; }
 
 /**
@@ -22,10 +28,21 @@ extern "C" {
  * @return ceil(log2(num))
  */
 static uint8_t log2_ceil_u64(uint64_t num) {
+	if (num == 1) {
+		return 1;
+	}
 	uint8_t ret = 0;
-	while (num > 0) {
-		num = num >> 1;
-		ret++;
+	bool leftmost = true;
+	for (int8_t i = 63; i >= 0; i--) {
+		if ((num >> (uint64_t)i) & (uint64_t)0x1) {
+			if (leftmost) { // leftmost bit
+				ret = (uint8_t)i;
+				leftmost = false;
+			} else { // not even power of 2
+				ret++;
+				break;
+			}
+		}
 	}
 	return ret;
 }
@@ -37,10 +54,21 @@ static uint8_t log2_ceil_u64(uint64_t num) {
  * @return ceil(log2(num))
  */
 static uint8_t log2_ceil_u8(uint8_t num) {
+	if (num == 1) {
+		return 1;
+	}
 	uint8_t ret = 0;
-	while (num > 0) {
-		num = num >> 1;
-		ret++;
+	bool leftmost = true;
+	for (int8_t i = 7; i >= 0; i--) {
+		if ((num >> (uint8_t)i) & (uint8_t)0x1) {
+			if (leftmost) { // leftmost bit
+				ret = (uint8_t)i;
+				leftmost = false;
+			} else { // not even power of 2
+				ret++;
+				break;
+			}
+		}
 	}
 	return ret;
 }
@@ -122,8 +150,8 @@ static HuffmanError extract_bits(uint64_t* dst,
  * @param[in,out] dst      Pointer to first byte in which to set data. Updated to first byte of following section.
  * @param[in,out] start    Bit from which to start. Updated to first bit of following section. Range 0-7.
  * @param[in,out] dst_size Number of bytes free in dst. Updated to number of bytes remaining.
- * @param[in]     size     Number of bits to write. Range 1-64.
  * @param[in]     val      Value to be written.
+ * @param[in]     size     Number of bits to write. Range 1-64.
  *
  * @return {@link ERR_NO_ERR} if no error occurred.\n
  * 		   {@link ERR_NULL_PTR} if dst or start are null or if value of dst is null.\n
@@ -223,6 +251,7 @@ static HuffmanError build_header(uint8_t** dst,
 	}
 	// Ensure enough space is available
 	uint8_t log2wordSize = log2_ceil_u8(header->wordSize);
+	// Number of bits required to store header
 	uint8_t reqBits = HUFFMAN_WORD_SIZE_NUM_BITS + log2wordSize + header->wordSize;
 	uint8_t reqBytes = reqBits / 8;
 	if (*dst_size < reqBytes || (*dst_size == reqBytes && (reqBits % 8) > 0)) {
@@ -235,17 +264,18 @@ static HuffmanError build_header(uint8_t** dst,
 	uint64_t newSize = *dst_size;
 
 	// word size
-	THROW_ERR(put_bits(&currDst, &currBit, &newSize, (uint8_t)HUFFMAN_WORD_SIZE_NUM_BITS, (uint64_t)header->wordSize - 1))
+	THROW_ERR(put_bits(&currDst, &currBit, &newSize, (uint64_t)header->wordSize - 1, (uint8_t)HUFFMAN_WORD_SIZE_NUM_BITS))
 	// pad bits
-	THROW_ERR(put_bits(&currDst, &currBit, &newSize, log2wordSize, (uint64_t)header->padBits))
+	THROW_ERR(put_bits(&currDst, &currBit, &newSize, (uint64_t)header->padBits, log2wordSize))
 	// unique words
-	THROW_ERR(put_bits(&currDst, &currBit, &newSize, header->wordSize, header->uniqueWords))
+	THROW_ERR(put_bits(&currDst, &currBit, &newSize, header->uniqueWords, header->wordSize))
 
+	// update after all successful
 	(*dst) = currDst;
 	(*start) = currBit;
 	(*dst_size) = newSize;
 
-	return ERR_NO_ERR;
+	return err;
 }
 
 #ifdef __cplusplus

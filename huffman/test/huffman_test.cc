@@ -1026,14 +1026,15 @@ TEST_F(HuffmanTest, put_bits_case4) {
 	EXPECT_EQ(0, start);
 }
 
+/**
+ * Tests input validation for {@link build_header}.
+ */
 TEST_F(HuffmanTest, build_header_errs) {
 	uint8_t testArr[128];
 	uint8_t* testPtr = testArr;
 	uint8_t* nullTest = NULL;
-	uint8_t size = 3;
 	uint8_t start;
 	uint64_t dst_size = 128;
-	uint64_t value = 0;
 	HuffmanHeader header = {
 			.wordSize = 9,
 			.padBits = 0,
@@ -1073,4 +1074,80 @@ TEST_F(HuffmanTest, build_header_errs) {
 	EXPECT_EQ(ERR_INSUFFICIENT_SPACE, build_header(&testPtr, &start, &dst_size, &header));
 	dst_size = 0;
 	EXPECT_EQ(ERR_INSUFFICIENT_SPACE, build_header(&testPtr, &start, &dst_size, &header));
+}
+
+/**
+ * Validates output for {@link log2_ceil_u64}.
+ */
+TEST_F(HuffmanTest, log2_ceil_u64) {
+	// case 1: 1
+	EXPECT_EQ(1, log2_ceil_u64(1));
+
+	// case 2: power of 2
+	for (uint8_t i = 1; i < 64; i++) {
+		EXPECT_EQ(i, log2_ceil_u64((uint64_t)0x1 << i));
+	}
+
+	// case 3: not even power of 2
+	for (uint8_t i = 0; i < 62; i++) {
+		EXPECT_EQ(i + 3, log2_ceil_u64((uint64_t)0x5 << i));
+	}
+}
+
+/**
+ * Validates output for {@link log2_ceil_u64}.
+ */
+TEST_F(HuffmanTest, log2_ceil_u8) {
+	// case 1: 1
+	EXPECT_EQ(1, log2_ceil_u8(1));
+
+	// case 2: power of 2
+	for (uint8_t i = 1; i < 8; i++) {
+		EXPECT_EQ(i, log2_ceil_u8(0x1 << i));
+	}
+
+	// case 3: not even power of 2
+	for (uint8_t i = 0; i < 6; i++) {
+		EXPECT_EQ(i + 3, log2_ceil_u8((uint8_t)0x5 << i));
+	}
+}
+
+/**
+ * Validates output for {@link build_header}.
+ */
+TEST_F(HuffmanTest, build_header) {
+	uint8_t testArr[128];
+	uint8_t* testPtr = testArr;
+	uint8_t start;
+	uint64_t dst_size = 128;
+	HuffmanHeader header;
+	uint64_t numBits;
+	uint8_t wordSize;
+
+	uint8_t* tempPtr;
+	uint8_t tempStart;
+	uint64_t temp;
+
+	for (wordSize = 2; wordSize <= 64; wordSize++) {
+		testPtr = testArr;
+		tempPtr = testArr;
+		tempStart = 0;
+		dst_size = 128;
+		header.wordSize = wordSize;
+		header.padBits = wordSize >> 1;
+		header.uniqueWords = ((uint64_t)wordSize - 1) * (uint64_t)wordSize;
+		numBits = HUFFMAN_WORD_SIZE_NUM_BITS + (uint64_t)log2_ceil_u8(wordSize) + (uint64_t)wordSize;
+
+		EXPECT_EQ(ERR_NO_ERR, build_header(&testPtr, &start, &dst_size, &header));
+		// validate contents
+		extract_bits(&temp, &tempPtr, &tempStart, HUFFMAN_WORD_SIZE_NUM_BITS);
+		EXPECT_EQ((uint64_t)wordSize - 1, temp);
+		extract_bits(&temp, &tempPtr, &tempStart, (uint64_t)log2_ceil_u8(wordSize));
+		EXPECT_EQ((uint64_t)header.padBits, temp);
+
+		// validate variables
+		EXPECT_EQ(&testArr[numBits / 8], testPtr);
+		EXPECT_EQ(128 - (numBits / 8), dst_size);
+		EXPECT_EQ(numBits % 8, start);
+	}
 }
