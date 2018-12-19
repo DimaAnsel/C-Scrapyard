@@ -394,28 +394,33 @@ TEST_F(HuffmanTest, put_bits_errs) {
 	uint8_t* nullTest = NULL;
 	uint8_t size = 3;
 	uint8_t start = 3;
+	uint64_t dst_size = 128;
 	uint64_t value = 0;
 
 	// null checks
-	EXPECT_EQ(ERR_NULL_PTR, put_bits(NULL, &start, 128, value, size));
-	EXPECT_EQ(ERR_NULL_PTR, put_bits(&nullTest, &start, 128, value, size));
-	EXPECT_EQ(ERR_NULL_PTR, put_bits(&testPtr, NULL, 128, value, size));
+	EXPECT_EQ(ERR_NULL_PTR, put_bits(NULL, &start, &dst_size, value, size));
+	EXPECT_EQ(ERR_NULL_PTR, put_bits(&nullTest, &start, &dst_size, value, size));
+	EXPECT_EQ(ERR_NULL_PTR, put_bits(&testPtr, NULL, &dst_size, value, size));
+	EXPECT_EQ(ERR_NULL_PTR, put_bits(&testPtr, &start, NULL, value, size));
 
 	// input validation
-	EXPECT_EQ(ERR_INVALID_VALUE, put_bits(&testPtr, &start, 128, value, 0));
-	EXPECT_EQ(ERR_INVALID_VALUE, put_bits(&testPtr, &start, 128, value, 65));
+	EXPECT_EQ(ERR_INVALID_VALUE, put_bits(&testPtr, &start, &dst_size, value, 0));
+	EXPECT_EQ(ERR_INVALID_VALUE, put_bits(&testPtr, &start, &dst_size, value, 65));
 	start = 8;
-	EXPECT_EQ(ERR_INVALID_VALUE, put_bits(&testPtr, &start, 128, value, size));
+	EXPECT_EQ(ERR_INVALID_VALUE, put_bits(&testPtr, &start, &dst_size, value, size));
 
 	// size validation
 	start = 3;
+	dst_size = 0;
 	EXPECT_EQ(ERR_INSUFFICIENT_SPACE,
-			put_bits(&testPtr, &start, 0, value, size));
-	EXPECT_EQ(ERR_INSUFFICIENT_SPACE, put_bits(&testPtr, &start, 1, value, 6));
+			put_bits(&testPtr, &start, &dst_size, value, size));
+	dst_size = 1;
+	EXPECT_EQ(ERR_INSUFFICIENT_SPACE, put_bits(&testPtr, &start, &dst_size, value, 6));
 	start = 0;
-	EXPECT_EQ(ERR_INSUFFICIENT_SPACE, put_bits(&testPtr, &start, 1, value, 9));
+	EXPECT_EQ(ERR_INSUFFICIENT_SPACE, put_bits(&testPtr, &start, &dst_size, value, 9));
 	start = 7;
-	EXPECT_EQ(ERR_INSUFFICIENT_SPACE, put_bits(&testPtr, &start, 2, value, 10));
+	dst_size = 2;
+	EXPECT_EQ(ERR_INSUFFICIENT_SPACE, put_bits(&testPtr, &start, &dst_size, value, 10));
 }
 
 /**
@@ -427,6 +432,7 @@ TEST_F(HuffmanTest, put_bits_case1) {
 	uint8_t size;
 	uint8_t start;
 	uint64_t value;
+	uint64_t dst_size;
 
 	// start 0
 	testArr[0] = 0xA5;
@@ -434,9 +440,11 @@ TEST_F(HuffmanTest, put_bits_case1) {
 	start = 0;
 	size = 5;
 	value = 0x08;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 2, value, size));
+	dst_size = 2;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0x40, testArr[0]);
 	EXPECT_EQ(testArr, testPtr);
+	EXPECT_EQ(2, dst_size);
 	EXPECT_EQ(5, start);
 
 	// start 1, limited size
@@ -445,9 +453,11 @@ TEST_F(HuffmanTest, put_bits_case1) {
 	start = 1;
 	size = 6;
 	value = 0x35;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 1, value, size));
+	dst_size = 1;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0x6A, testArr[0]);
 	EXPECT_EQ(testArr, testPtr);
+	EXPECT_EQ(1, dst_size);
 	EXPECT_EQ(7, start);
 
 	// start 2
@@ -456,9 +466,11 @@ TEST_F(HuffmanTest, put_bits_case1) {
 	start = 2;
 	size = 4;
 	value = 0xD;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 2, value, size));
+	dst_size = 2;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0x74, testArr[0]);
 	EXPECT_EQ(testArr, testPtr);
+	EXPECT_EQ(2, dst_size);
 	EXPECT_EQ(6, start);
 
 	// start 3
@@ -467,9 +479,11 @@ TEST_F(HuffmanTest, put_bits_case1) {
 	start = 3;
 	size = 2;
 	value = 0x1;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 2, value, size));
+	dst_size = 2;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0xA8, testArr[0]);
 	EXPECT_EQ(testArr, testPtr);
+	EXPECT_EQ(2, dst_size);
 	EXPECT_EQ(5, start);
 
 	// start 4
@@ -478,9 +492,11 @@ TEST_F(HuffmanTest, put_bits_case1) {
 	start = 4;
 	size = 2;
 	value = 0x2;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0x18, testArr[0]);
 	EXPECT_EQ(testArr, testPtr);
+	EXPECT_EQ(16, dst_size);
 	EXPECT_EQ(6, start);
 
 	// start 5, clip
@@ -489,9 +505,11 @@ TEST_F(HuffmanTest, put_bits_case1) {
 	start = 5;
 	size = 2;
 	value = 0x5;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0xAA, testArr[0]);
 	EXPECT_EQ(testArr, testPtr);
+	EXPECT_EQ(16, dst_size);
 	EXPECT_EQ(7, start);
 
 	// start 6
@@ -500,9 +518,11 @@ TEST_F(HuffmanTest, put_bits_case1) {
 	start = 6;
 	size = 1;
 	value = 0x0;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0xFC, testArr[0]);
 	EXPECT_EQ(testArr, testPtr);
+	EXPECT_EQ(16, dst_size);
 	EXPECT_EQ(7, start);
 }
 
@@ -516,15 +536,18 @@ TEST_F(HuffmanTest, put_bits_case2) {
 	uint8_t start;
 	uint64_t value;
 	uint8_t i;
+	uint64_t dst_size;
 
 	// start 0
 	testPtr = testArr;
 	start = 0;
 	size = 8;
 	value = 0x96;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0x96, testArr[0]);
 	EXPECT_EQ(testArr + 1, testPtr);
+	EXPECT_EQ(15, dst_size);
 	EXPECT_EQ(0, start);
 
 	// start 1, bit 0 = 0, clip value bits
@@ -533,9 +556,11 @@ TEST_F(HuffmanTest, put_bits_case2) {
 	start = 1;
 	size = 7;
 	value = 0xB5;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0x35, testArr[0]);
 	EXPECT_EQ(testArr + 1, testPtr);
+	EXPECT_EQ(15, dst_size);
 	EXPECT_EQ(0, start);
 
 	// start 1, bit 0 = 1
@@ -544,9 +569,11 @@ TEST_F(HuffmanTest, put_bits_case2) {
 	start = 1;
 	size = 7;
 	value = 0x35;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0xB5, testArr[0]);
 	EXPECT_EQ(testArr + 1, testPtr);
+	EXPECT_EQ(15, dst_size);
 	EXPECT_EQ(0, start);
 
 	// start 2
@@ -555,9 +582,11 @@ TEST_F(HuffmanTest, put_bits_case2) {
 	start = 2;
 	size = 6;
 	value = 0x15;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0x55, testArr[0]);
 	EXPECT_EQ(testArr + 1, testPtr);
+	EXPECT_EQ(15, dst_size);
 	EXPECT_EQ(0, start);
 
 	// start 3, clip value
@@ -566,9 +595,11 @@ TEST_F(HuffmanTest, put_bits_case2) {
 	start = 3;
 	size = 5;
 	value = 0xFED06;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0x26, testArr[0]);
 	EXPECT_EQ(testArr + 1, testPtr);
+	EXPECT_EQ(15, dst_size);
 	EXPECT_EQ(0, start);
 
 	// start 4, overwrite
@@ -577,9 +608,11 @@ TEST_F(HuffmanTest, put_bits_case2) {
 	start = 4;
 	size = 4;
 	value = 0x2;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0xC2, testArr[0]);
 	EXPECT_EQ(testArr + 1, testPtr);
+	EXPECT_EQ(15, dst_size);
 	EXPECT_EQ(0, start);
 
 	// start 5, overwrite
@@ -588,9 +621,11 @@ TEST_F(HuffmanTest, put_bits_case2) {
 	start = 5;
 	size = 3;
 	value = 0xA;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0x02, testArr[0]);
 	EXPECT_EQ(testArr + 1, testPtr);
+	EXPECT_EQ(15, dst_size);
 	EXPECT_EQ(0, start);
 
 	// start 6
@@ -599,9 +634,11 @@ TEST_F(HuffmanTest, put_bits_case2) {
 	start = 6;
 	size = 2;
 	value = 0x2;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0xCA, testArr[0]);
 	EXPECT_EQ(testArr + 1, testPtr);
+	EXPECT_EQ(15, dst_size);
 	EXPECT_EQ(0, start);
 
 	// start 7
@@ -610,9 +647,11 @@ TEST_F(HuffmanTest, put_bits_case2) {
 	start = 7;
 	size = 1;
 	value = 0x0;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0xFE, testArr[0]);
 	EXPECT_EQ(testArr + 1, testPtr);
+	EXPECT_EQ(15, dst_size);
 	EXPECT_EQ(0, start);
 }
 
@@ -625,6 +664,7 @@ TEST_F(HuffmanTest, put_bits_case3) {
 	uint8_t size;
 	uint8_t start;
 	uint64_t value;
+	uint64_t dst_size;
 
 	// start 0, 7 byte, overwrite
 	memset(testArr, 0xFF, 16);
@@ -632,7 +672,8 @@ TEST_F(HuffmanTest, put_bits_case3) {
 	start = 0;
 	size = 51;
 	value = 0x314053627D8C9;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0x62, testArr[0]);
 	EXPECT_EQ(0x80, testArr[1]);
 	EXPECT_EQ(0xA6, testArr[2]);
@@ -641,6 +682,7 @@ TEST_F(HuffmanTest, put_bits_case3) {
 	EXPECT_EQ(0x19, testArr[5]);
 	EXPECT_EQ(0x20, testArr[6]);
 	EXPECT_EQ(testArr + 6, testPtr);
+	EXPECT_EQ(10, dst_size);
 	EXPECT_EQ(3, start);
 
 	// start 1, 5 byte, even byte size
@@ -649,12 +691,14 @@ TEST_F(HuffmanTest, put_bits_case3) {
 	start = 1;
 	size = 32;
 	value = 0x50417263;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0xA8, testArr[0]);
 	EXPECT_EQ(0x20, testArr[1]);
 	EXPECT_EQ(0xB9, testArr[2]);
 	EXPECT_EQ(0x31, testArr[3]);
 	EXPECT_EQ(testArr + 4, testPtr);
+	EXPECT_EQ(12, dst_size);
 	EXPECT_EQ(1, start);
 
 	// start 2, 3 byte
@@ -663,11 +707,13 @@ TEST_F(HuffmanTest, put_bits_case3) {
 	start = 2;
 	size = 19;
 	value = 0x58C9F;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0xAC, testArr[0]);
 	EXPECT_EQ(0x64, testArr[1]);
 	EXPECT_EQ(0xF8, testArr[2]);
 	EXPECT_EQ(testArr + 2, testPtr);
+	EXPECT_EQ(14, dst_size);
 	EXPECT_EQ(5, start);
 
 	// start 2, max size
@@ -676,7 +722,8 @@ TEST_F(HuffmanTest, put_bits_case3) {
 	start = 2;
 	size = 64;
 	value = 0x1A2B3C4D5E6F7089;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0x46, testArr[0]);
 	EXPECT_EQ(0x8A, testArr[1]);
 	EXPECT_EQ(0xCF, testArr[2]);
@@ -687,6 +734,7 @@ TEST_F(HuffmanTest, put_bits_case3) {
 	EXPECT_EQ(0x22, testArr[7]);
 	EXPECT_EQ(0x40, testArr[8]);
 	EXPECT_EQ(testArr + 8, testPtr);
+	EXPECT_EQ(8, dst_size);
 	EXPECT_EQ(2, start);
 
 	// start 3, 4 byte
@@ -696,12 +744,14 @@ TEST_F(HuffmanTest, put_bits_case3) {
 	start = 3;
 	size = 25;
 	value = 0x1C5A691;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0xBC, testArr[0]);
 	EXPECT_EQ(0x5A, testArr[1]);
 	EXPECT_EQ(0x69, testArr[2]);
 	EXPECT_EQ(0x10, testArr[3]);
 	EXPECT_EQ(testArr + 3, testPtr);
+	EXPECT_EQ(13, dst_size);
 	EXPECT_EQ(4, start);
 
 	// start 4, 8 byte
@@ -710,7 +760,8 @@ TEST_F(HuffmanTest, put_bits_case3) {
 	start = 4;
 	size = 59;
 	value = 0x35386B43F5941E3;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0xC6, testArr[0]);
 	EXPECT_EQ(0xA7, testArr[1]);
 	EXPECT_EQ(0x0D, testArr[2]);
@@ -720,6 +771,7 @@ TEST_F(HuffmanTest, put_bits_case3) {
 	EXPECT_EQ(0x83, testArr[6]);
 	EXPECT_EQ(0xC6, testArr[7]);
 	EXPECT_EQ(testArr + 7, testPtr);
+	EXPECT_EQ(9, dst_size);
 	EXPECT_EQ(7, start);
 
 	// start 5, 2 byte
@@ -728,10 +780,12 @@ TEST_F(HuffmanTest, put_bits_case3) {
 	start = 5;
 	size = 9;
 	value = 0x14A;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0x05, testArr[0]);
 	EXPECT_EQ(0x28, testArr[1]);
 	EXPECT_EQ(testArr + 1, testPtr);
+	EXPECT_EQ(15, dst_size);
 	EXPECT_EQ(6, start);
 
 	// start 5, max size
@@ -740,7 +794,8 @@ TEST_F(HuffmanTest, put_bits_case3) {
 	start = 5;
 	size = 64;
 	value = 0xF0E1D2C3B4A59687;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0x97, testArr[0]);
 	EXPECT_EQ(0x87, testArr[1]);
 	EXPECT_EQ(0x0E, testArr[2]);
@@ -751,6 +806,7 @@ TEST_F(HuffmanTest, put_bits_case3) {
 	EXPECT_EQ(0xB4, testArr[7]);
 	EXPECT_EQ(0x38, testArr[8]);
 	EXPECT_EQ(testArr + 8, testPtr);
+	EXPECT_EQ(8, dst_size);
 	EXPECT_EQ(5, start);
 
 	// start 6, 2 byte
@@ -759,10 +815,12 @@ TEST_F(HuffmanTest, put_bits_case3) {
 	start = 6;
 	size = 5;
 	value = 0x06;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0x78, testArr[0]);
 	EXPECT_EQ(0xC0, testArr[1]);
 	EXPECT_EQ(testArr + 1, testPtr);
+	EXPECT_EQ(15, dst_size);
 	EXPECT_EQ(3, start);
 
 	// start 7, 6 byte
@@ -771,7 +829,8 @@ TEST_F(HuffmanTest, put_bits_case3) {
 	start = 7;
 	size = 40;
 	value = 0x84217BDE6A;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0x57, testArr[0]);
 	EXPECT_EQ(0x08, testArr[1]);
 	EXPECT_EQ(0x42, testArr[2]);
@@ -779,6 +838,7 @@ TEST_F(HuffmanTest, put_bits_case3) {
 	EXPECT_EQ(0xBC, testArr[4]);
 	EXPECT_EQ(0xD4, testArr[5]);
 	EXPECT_EQ(testArr + 5, testPtr);
+	EXPECT_EQ(11, dst_size);
 	EXPECT_EQ(7, start);
 }
 
@@ -791,6 +851,7 @@ TEST_F(HuffmanTest, put_bits_case4) {
 	uint8_t size;
 	uint8_t start;
 	uint64_t value;
+	uint64_t dst_size;
 
 	// start 0, 6 bytes, overwrite
 	memset(testArr, 0xFF, 16);
@@ -798,7 +859,8 @@ TEST_F(HuffmanTest, put_bits_case4) {
 	start = 0;
 	size = 48;
 	value = 0x1574689AEB6C;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0x15, testArr[0]);
 	EXPECT_EQ(0x74, testArr[1]);
 	EXPECT_EQ(0x68, testArr[2]);
@@ -806,6 +868,7 @@ TEST_F(HuffmanTest, put_bits_case4) {
 	EXPECT_EQ(0xEB, testArr[4]);
 	EXPECT_EQ(0x6C, testArr[5]);
 	EXPECT_EQ(testArr + 6, testPtr);
+	EXPECT_EQ(10, dst_size);
 	EXPECT_EQ(0, start);
 
 	// start 0, full size, limited size
@@ -813,7 +876,8 @@ TEST_F(HuffmanTest, put_bits_case4) {
 	start = 0;
 	size = 64;
 	value = 0xFEDCBA9876543210;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 8, value, size));
+	dst_size = 8;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0xFE, testArr[0]);
 	EXPECT_EQ(0xDC, testArr[1]);
 	EXPECT_EQ(0xBA, testArr[2]);
@@ -823,6 +887,7 @@ TEST_F(HuffmanTest, put_bits_case4) {
 	EXPECT_EQ(0x32, testArr[6]);
 	EXPECT_EQ(0x10, testArr[7]);
 	EXPECT_EQ(testArr + 8, testPtr);
+	EXPECT_EQ(0, dst_size);
 	EXPECT_EQ(0, start);
 
 	// start 1, 7 bytes
@@ -832,7 +897,8 @@ TEST_F(HuffmanTest, put_bits_case4) {
 	start = 1;
 	size = 55;
 	value = 0xE2194DAF1E3508;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0x62, testArr[0]);
 	EXPECT_EQ(0x19, testArr[1]);
 	EXPECT_EQ(0x4D, testArr[2]);
@@ -841,6 +907,7 @@ TEST_F(HuffmanTest, put_bits_case4) {
 	EXPECT_EQ(0x35, testArr[5]);
 	EXPECT_EQ(0x08, testArr[6]);
 	EXPECT_EQ(testArr + 7, testPtr);
+	EXPECT_EQ(9, dst_size);
 	EXPECT_EQ(0, start);
 
 	// start 2, 5 bytes
@@ -849,13 +916,15 @@ TEST_F(HuffmanTest, put_bits_case4) {
 	start = 2;
 	size = 38;
 	value = 0x29ECA7F031;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0xA9, testArr[0]);
 	EXPECT_EQ(0xEC, testArr[1]);
 	EXPECT_EQ(0xA7, testArr[2]);
 	EXPECT_EQ(0xF0, testArr[3]);
 	EXPECT_EQ(0x31, testArr[4]);
 	EXPECT_EQ(testArr + 5, testPtr);
+	EXPECT_EQ(11, dst_size);
 	EXPECT_EQ(0, start);
 
 
@@ -866,10 +935,12 @@ TEST_F(HuffmanTest, put_bits_case4) {
 	start = 3;
 	size = 13;
 	value = 0x0C52;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0xEC, testArr[0]);
 	EXPECT_EQ(0x52, testArr[1]);
 	EXPECT_EQ(testArr + 2, testPtr);
+	EXPECT_EQ(14, dst_size);
 	EXPECT_EQ(0, start);
 
 	// start 4, 4 bytes
@@ -878,12 +949,14 @@ TEST_F(HuffmanTest, put_bits_case4) {
 	start = 4;
 	size = 28;
 	value = 0x6B54D3C;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0x56, testArr[0]);
 	EXPECT_EQ(0xB5, testArr[1]);
 	EXPECT_EQ(0x4D, testArr[2]);
 	EXPECT_EQ(0x3C, testArr[3]);
 	EXPECT_EQ(testArr + 4, testPtr);
+	EXPECT_EQ(12, dst_size);
 	EXPECT_EQ(0, start);
 
 	// start 5, 3 bytes, start mid-array
@@ -892,11 +965,13 @@ TEST_F(HuffmanTest, put_bits_case4) {
 	start = 5;
 	size = 19;
 	value = 0x194DEA;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0x61, testArr[10]);
 	EXPECT_EQ(0x4D, testArr[11]);
 	EXPECT_EQ(0xEA, testArr[12]);
 	EXPECT_EQ(testArr + 13, testPtr);
+	EXPECT_EQ(13, dst_size);
 	EXPECT_EQ(0, start);
 
 	// start 6, 2 byte
@@ -905,10 +980,12 @@ TEST_F(HuffmanTest, put_bits_case4) {
 	start = 6;
 	size = 10;
 	value = 0x12A;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0xE5, testArr[0]);
 	EXPECT_EQ(0x2A, testArr[1]);
 	EXPECT_EQ(testArr + 2, testPtr);
+	EXPECT_EQ(14, dst_size);
 	EXPECT_EQ(0, start);
 
 	// start 7, 5 bytes, clip, start mid-array
@@ -917,13 +994,15 @@ TEST_F(HuffmanTest, put_bits_case4) {
 	start = 7;
 	size = 33;
 	value = 0x85EAC5F684;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 13, value, size));
+	dst_size = 13;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0x39, testArr[3]);
 	EXPECT_EQ(0xEA, testArr[4]);
 	EXPECT_EQ(0xC5, testArr[5]);
 	EXPECT_EQ(0xF6, testArr[6]);
 	EXPECT_EQ(0x84, testArr[7]);
 	EXPECT_EQ(testArr + 8, testPtr);
+	EXPECT_EQ(8, dst_size);
 	EXPECT_EQ(0, start);
 
 	// start 7, 8 bytes
@@ -932,7 +1011,8 @@ TEST_F(HuffmanTest, put_bits_case4) {
 	start = 7;
 	size = 57;
 	value = 0x03A5B9E8C1D7368;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, 16, value, size));
+	dst_size = 16;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &dst_size, value, size));
 	EXPECT_EQ(0xF2, testArr[0]);
 	EXPECT_EQ(0x3A, testArr[1]);
 	EXPECT_EQ(0x5B, testArr[2]);
@@ -942,5 +1022,55 @@ TEST_F(HuffmanTest, put_bits_case4) {
 	EXPECT_EQ(0x73, testArr[6]);
 	EXPECT_EQ(0x68, testArr[7]);
 	EXPECT_EQ(testArr + 8, testPtr);
+	EXPECT_EQ(8, dst_size);
 	EXPECT_EQ(0, start);
+}
+
+TEST_F(HuffmanTest, build_header_errs) {
+	uint8_t testArr[128];
+	uint8_t* testPtr = testArr;
+	uint8_t* nullTest = NULL;
+	uint8_t size = 3;
+	uint8_t start;
+	uint64_t dst_size = 128;
+	uint64_t value = 0;
+	HuffmanHeader header = {
+			.wordSize = 9,
+			.padBits = 0,
+			.uniqueWords = 3
+	};
+
+	// null check
+	EXPECT_EQ(ERR_NULL_PTR, build_header(NULL, &start, &dst_size, &header));
+	EXPECT_EQ(ERR_NULL_PTR, build_header(&nullTest, &start, &dst_size, &header));
+	EXPECT_EQ(ERR_NULL_PTR, build_header(&testPtr, NULL, &dst_size, &header));
+	EXPECT_EQ(ERR_NULL_PTR, build_header(&testPtr, &start, NULL, &header));
+	EXPECT_EQ(ERR_NULL_PTR, build_header(&testPtr, &start, &dst_size, NULL));
+
+	// input validation
+	header.wordSize = 1;
+	EXPECT_EQ(ERR_INVALID_VALUE, build_header(&testPtr, &start, &dst_size, &header));
+	header.wordSize = 65;
+	EXPECT_EQ(ERR_INVALID_VALUE, build_header(&testPtr, &start, &dst_size, &header));
+	header.wordSize = 9;
+	header.padBits = 9;
+	EXPECT_EQ(ERR_INVALID_VALUE, build_header(&testPtr, &start, &dst_size, &header));
+	header.wordSize = 3;
+	header.padBits = 0;
+	header.uniqueWords = 8;
+	EXPECT_EQ(ERR_INVALID_VALUE, build_header(&testPtr, &start, &dst_size, &header));
+
+	// size validation
+	dst_size = 2; // (6 + 5 + 9) / 8 = 20 / 8 = 2 R 4
+	header.padBits = 3;
+	header.wordSize = 9;
+	header.uniqueWords = 1;
+	EXPECT_EQ(ERR_INSUFFICIENT_SPACE, build_header(&testPtr, &start, &dst_size, &header));
+	header.wordSize = 64;
+	dst_size = 9; // (6 + 8 + 64) / 8 = 78 / 8 = 9 R 6
+	EXPECT_EQ(ERR_INSUFFICIENT_SPACE, build_header(&testPtr, &start, &dst_size, &header));
+	dst_size = 2;
+	EXPECT_EQ(ERR_INSUFFICIENT_SPACE, build_header(&testPtr, &start, &dst_size, &header));
+	dst_size = 0;
+	EXPECT_EQ(ERR_INSUFFICIENT_SPACE, build_header(&testPtr, &start, &dst_size, &header));
 }

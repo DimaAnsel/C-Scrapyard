@@ -13,6 +13,38 @@
 extern "C" {
 #endif
 
+#define THROW_ERR(f) err = (f); if (err != ERR_NO_ERR) { return err; }
+
+/**
+ * Ceiling of log base 2 for uint64_t value.
+ *
+ * @param[in] num Value to be processed.
+ * @return ceil(log2(num))
+ */
+static uint8_t log2_ceil_u64(uint64_t num) {
+	uint8_t ret = 0;
+	while (num > 0) {
+		num = num >> 1;
+		ret++;
+	}
+	return ret;
+}
+
+/**
+ * Ceiling of log base 2 for uint8_t value.
+ *
+ * @param[in] num Value to be processed.
+ * @return ceil(log2(num))
+ */
+static uint8_t log2_ceil_u8(uint8_t num) {
+	uint8_t ret = 0;
+	while (num > 0) {
+		num = num >> 1;
+		ret++;
+	}
+	return ret;
+}
+
 /**
  * Reads a value beginning at an arbitrary position.
  *
@@ -89,7 +121,7 @@ static HuffmanError extract_bits(uint64_t* dst,
  *
  * @param[in,out] dst      Pointer to first byte in which to set data. Updated to first byte of following section.
  * @param[in,out] start    Bit from which to start. Updated to first bit of following section. Range 0-7.
- * @param[in]     dst_size Number of bytes free in dst.
+ * @param[in,out] dst_size Number of bytes free in dst. Updated to number of bytes remaining.
  * @param[in]     size     Number of bits to write. Range 1-64.
  * @param[in]     val      Value to be written.
  *
@@ -100,16 +132,16 @@ static HuffmanError extract_bits(uint64_t* dst,
  */
 static HuffmanError put_bits(uint8_t** dst,
 							 uint8_t* start,
-							 uint8_t dst_size,
+							 uint64_t* dst_size,
 							 uint64_t val,
 							 uint8_t size) {
-	if (dst == NULL || *dst == NULL || start == NULL) {
+	if (dst == NULL || *dst == NULL || start == NULL || dst_size == NULL) {
 		return ERR_NULL_PTR;
 	}
 	if (*start >= 8 || size == 0 || size > 64) {
 		return ERR_INVALID_VALUE;
 	}
-	if (dst_size == 0) {
+	if (*dst_size == 0) {
 		return ERR_INSUFFICIENT_SPACE;
 	}
 
@@ -123,7 +155,7 @@ static HuffmanError put_bits(uint8_t** dst,
 	uint8_t mask = 0xFF ^ ((1 << (8 - *start)) - 1);
 
 	// verify have space to write data
-	if (newArrOffset > dst_size || (newArrOffset == dst_size && newStart > 0)) {
+	if (newArrOffset > *dst_size || (newArrOffset == *dst_size && newStart > 0)) {
 		return ERR_INSUFFICIENT_SPACE;
 	}
 
@@ -138,6 +170,7 @@ static HuffmanError put_bits(uint8_t** dst,
 	// must be done after init mask
 	(*dst) += newArrOffset;
 	(*start) = newStart;
+	(*dst_size) = (*dst_size) - (uint64_t)newArrOffset;
 
 	if (newArrOffset == 0) {
 		// Case I: single byte, non-even end
@@ -163,6 +196,55 @@ static HuffmanError put_bits(uint8_t** dst,
 		tempPtr++;
 		*tempPtr = (val << (8 - newStart)) & 0xFF;
 	}
+	return ERR_NO_ERR;
+}
+
+/**
+ * Constructs a file header for a Huffman compressed file. Does not include
+ * value map.
+ *
+ * @param[in,out] dst      Pointer to first byte in which to set data. Updated to first byte of following section.
+ * @param[out]    start    Starting bit of next section. Range 0-7.
+ * @param[in,out] dst_size Number of bytes free in dst.
+ * @param[in]     header   Header data from which to generate output.
+ */
+static HuffmanError build_header(uint8_t** dst,
+								 uint8_t* start,
+								 uint64_t* dst_size,
+								 HuffmanHeader* header) {
+	// Input validation
+	if (dst == NULL || *dst == NULL || start == NULL || dst_size == NULL || header == NULL) {
+		return ERR_NULL_PTR;
+	}
+	uint64_t maxWords = (header->wordSize == 64) ? HUFFMAN_MAX_UNIQUE_WORDS : (((uint64_t)0x1) << header->wordSize) - 1;
+	if (header->wordSize < 2 || header->wordSize > 64 ||
+			header->uniqueWords > maxWords || header->padBits >= header->wordSize) {
+		return ERR_INVALID_VALUE;
+	}
+	// Ensure enough space is available
+	uint8_t log2wordSize = log2_ceil_u8(header->wordSize);
+	uint8_t reqBits = HUFFMAN_WORD_SIZE_NUM_BITS + log2wordSize + header->wordSize;
+	uint8_t reqBytes = reqBits / 8;
+	if (*dst_size < reqBytes || (*dst_size == reqBytes && (reqBits % 8) > 0)) {
+		return ERR_INSUFFICIENT_SPACE;
+	}
+
+	HuffmanError err;
+	uint8_t* currDst = *dst;
+	uint8_t currBit = 0;
+	uint64_t newSize = *dst_size;
+
+	// word size
+	THROW_ERR(put_bits(&currDst, &currBit, &newSize, (uint8_t)HUFFMAN_WORD_SIZE_NUM_BITS, (uint64_t)header->wordSize - 1))
+	// pad bits
+	THROW_ERR(put_bits(&currDst, &currBit, &newSize, log2wordSize, (uint64_t)header->padBits))
+	// unique words
+	THROW_ERR(put_bits(&currDst, &currBit, &newSize, header->wordSize, header->uniqueWords))
+
+	(*dst) = currDst;
+	(*start) = currBit;
+	(*dst_size) = newSize;
+
 	return ERR_NO_ERR;
 }
 
