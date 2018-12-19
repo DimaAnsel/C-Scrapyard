@@ -9,20 +9,32 @@ extern "C" {
 #endif
 
 #ifndef __HUFFMAN_H_
+/**Include guard.*/
 #define __HUFFMAN_H_
 
+////////////////////////////////////////////////////////////////
+///
+/// @defgroup HuffmanConstants Huffman constants
+/// Constants for Huffman compression framework in {@link huffman.c}.
+///
+////////////////////////////////////////////////////////////////
+
 /**
+ * @ingroup HuffmanConstants
  * Number of bits required for word size in file header.
  */
 #define HUFFMAN_WORD_SIZE_NUM_BITS 6
 
 /**
+ * @ingroup HuffmanConstants
  * Maximum value of {@link HuffmanHeader#uniqueWords}. Note that compression
  * algorithm supports 2^64 words although this constant is set to 2^64 - 1.
  */
 #define HUFFMAN_MAX_UNIQUE_WORDS ((uint64_t)0xFFFFFFFFFFFFFFFF)
 
 /**
+ * @ingroup HuffmanConstants
+ * @enum HuffmanError
  * Return codes for functions in {@link huffman.c}.
  */
 typedef enum HuffmanError_enum {
@@ -37,9 +49,7 @@ typedef enum HuffmanError_enum {
 } HuffmanError;
 
 /**
- * @file
  * @struct HuffmanHeader
- *
  * Metadata information for compressed data.
  */
 typedef struct HuffmanHeader_struct {

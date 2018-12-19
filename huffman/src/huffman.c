@@ -13,7 +13,15 @@
 extern "C" {
 #endif
 
+////////////////////////////////////////////////////////////////
+///
+/// @defgroup HuffmanHelpers Huffman helper functions
+/// Helper functions for Huffman compression framework in {@link huffman.c}.
+///
+////////////////////////////////////////////////////////////////
+
 /**
+ * @ingroup HuffmanHelpers
  * Enables throwing of {@link HuffmanError} to calling function if error
  * occurred.
  *
@@ -22,6 +30,7 @@ extern "C" {
 #define THROW_ERR(f) err = (f); if (err != ERR_NO_ERR) { return err; }
 
 /**
+ * @ingroup HuffmanHelpers
  * Ceiling of log base 2 for uint64_t value.
  *
  * @param[in] num Value to be processed.
@@ -48,6 +57,7 @@ static uint8_t log2_ceil_u64(uint64_t num) {
 }
 
 /**
+ * @ingroup HuffmanHelpers
  * Ceiling of log base 2 for uint8_t value.
  *
  * @param[in] num Value to be processed.
@@ -74,6 +84,7 @@ static uint8_t log2_ceil_u8(uint8_t num) {
 }
 
 /**
+ * @ingroup HuffmanHelpers
  * Reads a value beginning at an arbitrary position.
  *
  * @param[out]    dst   Destination for parsed value. Will be completely overwritten regardless of size.
@@ -145,6 +156,7 @@ static HuffmanError extract_bits(uint64_t* dst,
 }
 
 /**
+ * @ingroup HuffmanHelpers
  * Puts a value into an arbitrary position.
  *
  * @param[in,out] dst      Pointer to first byte in which to set data. Updated to first byte of following section.
@@ -228,13 +240,21 @@ static HuffmanError put_bits(uint8_t** dst,
 }
 
 /**
+ * @ingroup HuffmanHelpers
  * Constructs a file header for a Huffman compressed file. Does not include
- * value map.
+ * value map. File header size is
+ * {@link HUFFMAN_WORD_SIZE_NUM_BITS} + ceil(log2(wordSize)) + wordSize bits.
  *
  * @param[in,out] dst      Pointer to first byte in which to set data. Updated to first byte of following section.
  * @param[out]    start    Starting bit of next section. Range 0-7.
  * @param[in,out] dst_size Number of bytes free in dst.
  * @param[in]     header   Header data from which to generate output.
+ *
+ * @return {@link ERR_NO_ERR} if no error occurred.\n
+ * 		   {@link ERR_NULL_PTR} if a parameter is null, or if value of dst is null.\n
+ * 		   {@link ERR_INVALID_VALUE} if start or any member of header are out of accepted range.\n
+ * 		   {@link ERR_INSUFFICIENT_SPACE} if function requires more than dst_size bytes to write data.\n
+ * 		   Other errors as returned from {@link put_bits}.
  */
 static HuffmanError build_header(uint8_t** dst,
 								 uint8_t* start,
