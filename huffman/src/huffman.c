@@ -161,7 +161,7 @@ static HuffmanError extract_bits(uint64_t* dst,
  *
  * @param[in,out] dst     Pointer to first byte in which to set data. Updated to first byte of following section.
  * @param[in,out] start   Bit from which to start. Updated to first bit of following section. Range 0-7.
- * @param[in,out] dstSize Number of bytes free in dst. Updated to number of bytes remaining.
+ * @param[in,out] dstSize Number of bytes free in dst. Updated to remaining number of bytes on success.
  * @param[in]     val     Value to be written.
  * @param[in]     size    Number of bits to write. Range 1-64.
  *
@@ -249,7 +249,7 @@ static HuffmanError put_bits(uint8_t** dst,
  *
  * @param[in,out] dst     Pointer to first byte in which to set data. Updated to first byte of following section.
  * @param[out]    start   Starting bit of next section. Range 0-7.
- * @param[in,out] dstSize Number of bytes free in dst.
+ * @param[in,out] dstSize Number of bytes free in dst. Updated to remaining number of bytes on success.
  * @param[in]     header  Header data from which to generate output.
  *
  * @return {@link ERR_NO_ERR} if no error occurred.\n
@@ -310,7 +310,7 @@ static HuffmanError build_header(uint8_t** dst,
  * @param[out]    header  Destination for parsed values.
  * @param[in,out] src     Pointer to byte from which to read. Updated to first byte of following section.
  * @param[out]    start   Starting bit of next section. Range 0-7.
- * @param[in,out] srcSize Length of src in bytes.
+ * @param[in,out] srcSize Length of src in bytes. Updated to remaining number of bytes on success.
  *
  * @return {@link ERR_NO_ERR} if no error occurred.\n
  *         {@link ERR_NULL_PTR} if a parameter is null, or if value of src is null.\n
@@ -323,10 +323,10 @@ static HuffmanError parse_header(HuffmanHeader* header,
 								 uint8_t** src,
 								 uint8_t* start,
 								 uint64_t* srcSize) {
-	if (header == NULL || src == NULL || *src == NULL || start == NULL) {
+	if (header == NULL || src == NULL || *src == NULL || start == NULL || srcSize == NULL) {
 		return ERR_NULL_PTR;
 	}
-	if (srcSize < 2) { // require minimum 6 + 1 + 2 bits = 1 byte + 1 bit
+	if (*srcSize < 2) { // require minimum 6 + 1 + 2 bits = 1 byte + 1 bit
 		return ERR_INVALID_VALUE;
 	}
 	uint64_t temp = 0;

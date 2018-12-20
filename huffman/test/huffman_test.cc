@@ -1151,3 +1151,54 @@ TEST_F(HuffmanTest, build_header) {
 		EXPECT_EQ(numBits % 8, start);
 	}
 }
+
+/**
+ * Tests input validation for {@link parse_header}.
+ */
+TEST_F(HuffmanTest, parse_header_errs) {
+	uint8_t testArr[128];
+	uint8_t* testPtr = testArr;
+	uint8_t* nullTest = NULL;
+	uint8_t start;
+	uint64_t srcSize = 128;
+	HuffmanHeader header = {
+			.wordSize = 9,
+			.padBits = 0,
+			.uniqueWords = 3
+	};
+
+	// null check
+	EXPECT_EQ(ERR_NULL_PTR, parse_header(NULL, &testPtr, &start, &srcSize));
+	EXPECT_EQ(ERR_NULL_PTR, parse_header(&header, NULL, &start, &srcSize));
+	EXPECT_EQ(ERR_NULL_PTR, parse_header(&header, &nullTest, &start, &srcSize));
+	EXPECT_EQ(ERR_NULL_PTR, parse_header(&header, &testPtr, NULL, &srcSize));
+	EXPECT_EQ(ERR_NULL_PTR, parse_header(&header, &testPtr, &start, NULL));
+
+	// input validation
+	srcSize = 1;
+	EXPECT_EQ(ERR_INVALID_VALUE, parse_header(&header, &testPtr, &start, &srcSize));
+
+	// invalid data
+	srcSize = 128;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &srcSize, (uint64_t)0, (uint8_t)HUFFMAN_WORD_SIZE_NUM_BITS));
+	testPtr = testArr;
+	start = 0;
+	srcSize = 128;
+	EXPECT_EQ(ERR_INVALID_DATA, parse_header(&header, &testPtr, &start, &srcSize));
+
+	// size validation
+	// case 1: even byte boundary
+	uint64_t wordSize = 13; // total size: 6 + ceil(log2(13)) + 13 = 6 + 5 + 13 = 24 bits
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &srcSize, wordSize, (uint8_t)HUFFMAN_WORD_SIZE_NUM_BITS));
+	testPtr = testArr;
+	start = 0;
+	srcSize = 2;
+	EXPECT_EQ(ERR_INSUFFICIENT_SPACE, parse_header(&header, &testPtr, &start, &srcSize));
+	// case 2: not byte boundary
+	wordSize = 23; // total size: 6 + ceil(log2(23)) + 23 = 6 + 6 + 23 = 35 bits
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &srcSize, wordSize, (uint8_t)HUFFMAN_WORD_SIZE_NUM_BITS));
+	testPtr = testArr;
+	start = 0;
+	srcSize = 4;
+	EXPECT_EQ(ERR_INSUFFICIENT_SPACE, parse_header(&header, &testPtr, &start, &srcSize));
+}
