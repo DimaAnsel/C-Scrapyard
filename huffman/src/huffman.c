@@ -357,10 +357,13 @@ static HuffmanError parse_header(HuffmanHeader* header,
 		return ERR_INSUFFICIENT_SPACE;
 	}
 
-
-	// parse padBits
+	// Parse padBits
 	size = log2_ceil_u8(header->wordSize);
 	THROW_ERR(extract_bits(&temp, &tempPtr, &tempStart, size))
+	// Ensure padBits in valid range
+	if (temp >= (uint64_t)header->wordSize) {
+		return ERR_INVALID_DATA;
+	}
 	header->padBits = (uint8_t)temp;
 
 	// parse uniqueWords
