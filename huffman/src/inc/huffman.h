@@ -21,6 +21,18 @@ extern "C" {
 
 /**
  * @ingroup HuffmanConstants
+ * Minimum supported word size for Huffman encoding.
+ */
+#define HUFFMAN_MIN_WORD_SIZE 2
+
+/**
+ * @ingroup HuffmanConstants
+ * Maximum supported word size for Huffman encoding.
+ */
+#define HUFFMAN_MAX_WORD_SIZE 64
+
+/**
+ * @ingroup HuffmanConstants
  * Number of bits required for word size in file header.
  */
 #define HUFFMAN_WORD_SIZE_NUM_BITS 6
@@ -45,7 +57,9 @@ typedef enum HuffmanError_enum {
 	/**Function received an invalid parameter value.*/
 	ERR_INVALID_VALUE,
 	/**The destination does not contain enough space to store function result.*/
-	ERR_INSUFFICIENT_SPACE
+	ERR_INSUFFICIENT_SPACE,
+	/**The compressed source contained invalid data.*/
+	ERR_INVALID_DATA
 } HuffmanError;
 
 /**

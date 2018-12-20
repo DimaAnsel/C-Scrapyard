@@ -159,29 +159,29 @@ static HuffmanError extract_bits(uint64_t* dst,
  * @ingroup HuffmanHelpers
  * Puts a value into an arbitrary position.
  *
- * @param[in,out] dst      Pointer to first byte in which to set data. Updated to first byte of following section.
- * @param[in,out] start    Bit from which to start. Updated to first bit of following section. Range 0-7.
- * @param[in,out] dst_size Number of bytes free in dst. Updated to number of bytes remaining.
- * @param[in]     val      Value to be written.
- * @param[in]     size     Number of bits to write. Range 1-64.
+ * @param[in,out] dst     Pointer to first byte in which to set data. Updated to first byte of following section.
+ * @param[in,out] start   Bit from which to start. Updated to first bit of following section. Range 0-7.
+ * @param[in,out] dstSize Number of bytes free in dst. Updated to number of bytes remaining.
+ * @param[in]     val     Value to be written.
+ * @param[in]     size    Number of bits to write. Range 1-64.
  *
  * @return {@link ERR_NO_ERR} if no error occurred.\n
  * 		   {@link ERR_NULL_PTR} if dst or start are null or if value of dst is null.\n
  * 		   {@link ERR_INVALID_VALUE} if start or size out of accepted range.\n
- * 		   {@link ERR_INSUFFICIENT_SPACE} if function requires more than dst_size bytes to write data.
+ * 		   {@link ERR_INSUFFICIENT_SPACE} if function requires more than dstSize bytes to write data.
  */
 static HuffmanError put_bits(uint8_t** dst,
 							 uint8_t* start,
-							 uint64_t* dst_size,
+							 uint64_t* dstSize,
 							 uint64_t val,
 							 uint8_t size) {
-	if (dst == NULL || *dst == NULL || start == NULL || dst_size == NULL) {
+	if (dst == NULL || *dst == NULL || start == NULL || dstSize == NULL) {
 		return ERR_NULL_PTR;
 	}
 	if (*start >= 8 || size == 0 || size > 64) {
 		return ERR_INVALID_VALUE;
 	}
-	if (*dst_size == 0) {
+	if (*dstSize == 0) {
 		return ERR_INSUFFICIENT_SPACE;
 	}
 
@@ -195,7 +195,7 @@ static HuffmanError put_bits(uint8_t** dst,
 	uint8_t mask = 0xFF ^ ((1 << (8 - *start)) - 1);
 
 	// verify have space to write data
-	if (newArrOffset > *dst_size || (newArrOffset == *dst_size && newStart > 0)) {
+	if (newArrOffset > *dstSize || (newArrOffset == *dstSize && newStart > 0)) {
 		return ERR_INSUFFICIENT_SPACE;
 	}
 
@@ -210,7 +210,7 @@ static HuffmanError put_bits(uint8_t** dst,
 	// must be done after init mask
 	(*dst) += newArrOffset;
 	(*start) = newStart;
-	(*dst_size) = (*dst_size) - (uint64_t)newArrOffset;
+	(*dstSize) = (*dstSize) - (uint64_t)newArrOffset;
 
 	if (newArrOffset == 0) {
 		// Case I: single byte, non-even end
@@ -241,31 +241,33 @@ static HuffmanError put_bits(uint8_t** dst,
 
 /**
  * @ingroup HuffmanHelpers
- * Constructs a file header for a Huffman compressed file. Does not include
+ * Constructs a header for a Huffman compressed data. Does not include
  * value map. File header size is
  * {@link HUFFMAN_WORD_SIZE_NUM_BITS} + ceil(log2(wordSize)) + wordSize bits.
  *
- * @param[in,out] dst      Pointer to first byte in which to set data. Updated to first byte of following section.
- * @param[out]    start    Starting bit of next section. Range 0-7.
- * @param[in,out] dst_size Number of bytes free in dst.
- * @param[in]     header   Header data from which to generate output.
+ * @see parse_header
+ *
+ * @param[in,out] dst     Pointer to first byte in which to set data. Updated to first byte of following section.
+ * @param[out]    start   Starting bit of next section. Range 0-7.
+ * @param[in,out] dstSize Number of bytes free in dst.
+ * @param[in]     header  Header data from which to generate output.
  *
  * @return {@link ERR_NO_ERR} if no error occurred.\n
  * 		   {@link ERR_NULL_PTR} if a parameter is null, or if value of dst is null.\n
  * 		   {@link ERR_INVALID_VALUE} if start or any member of header are out of accepted range.\n
- * 		   {@link ERR_INSUFFICIENT_SPACE} if function requires more than dst_size bytes to write data.\n
- * 		   Other errors as returned from {@link put_bits}.
+ * 		   {@link ERR_INSUFFICIENT_SPACE} if function requires more than dstSize bytes to write data.\n
+ * 		   Other errors as raised by {@link put_bits}.
  */
 static HuffmanError build_header(uint8_t** dst,
 								 uint8_t* start,
-								 uint64_t* dst_size,
+								 uint64_t* dstSize,
 								 HuffmanHeader* header) {
 	// Input validation
-	if (dst == NULL || *dst == NULL || start == NULL || dst_size == NULL || header == NULL) {
+	if (dst == NULL || *dst == NULL || start == NULL || dstSize == NULL || header == NULL) {
 		return ERR_NULL_PTR;
 	}
 	uint64_t maxWords = (header->wordSize == 64) ? HUFFMAN_MAX_UNIQUE_WORDS : (((uint64_t)0x1) << header->wordSize) - 1;
-	if (header->wordSize < 2 || header->wordSize > 64 ||
+	if (header->wordSize < HUFFMAN_MIN_WORD_SIZE || header->wordSize > HUFFMAN_MAX_WORD_SIZE ||
 			header->uniqueWords > maxWords || header->padBits >= header->wordSize) {
 		return ERR_INVALID_VALUE;
 	}
@@ -274,14 +276,14 @@ static HuffmanError build_header(uint8_t** dst,
 	// Number of bits required to store header
 	uint8_t reqBits = HUFFMAN_WORD_SIZE_NUM_BITS + log2wordSize + header->wordSize;
 	uint8_t reqBytes = reqBits / 8;
-	if (*dst_size < reqBytes || (*dst_size == reqBytes && (reqBits % 8) > 0)) {
+	if (*dstSize < reqBytes || (*dstSize == reqBytes && (reqBits % 8) > 0)) {
 		return ERR_INSUFFICIENT_SPACE;
 	}
 
 	HuffmanError err;
 	uint8_t* currDst = *dst;
 	uint8_t currBit = 0;
-	uint64_t newSize = *dst_size;
+	uint64_t newSize = *dstSize;
 
 	// word size
 	THROW_ERR(put_bits(&currDst, &currBit, &newSize, (uint64_t)header->wordSize - 1, (uint8_t)HUFFMAN_WORD_SIZE_NUM_BITS))
@@ -293,9 +295,85 @@ static HuffmanError build_header(uint8_t** dst,
 	// update after all successful
 	(*dst) = currDst;
 	(*start) = currBit;
-	(*dst_size) = newSize;
+	(*dstSize) = newSize;
 
 	return err;
+}
+
+/**
+ * @ingroup HuffmanHelpers
+ * Parses a header from Huffman compressed data into a {@link HuffmanHeader}
+ * struct. Does not include value map.
+ *
+ * @see build_header
+ *
+ * @param[out]    header  Destination for parsed values.
+ * @param[in,out] src     Pointer to byte from which to read. Updated to first byte of following section.
+ * @param[out]    start   Starting bit of next section. Range 0-7.
+ * @param[in,out] srcSize Length of src in bytes.
+ *
+ * @return {@link ERR_NO_ERR} if no error occurred.\n
+ *         {@link ERR_NULL_PTR} if a parameter is null, or if value of src is null.\n
+ *         {@link ERR_INVALID_VALUE} if start or srcSize are out of accepted range.\n
+ *         {@link ERR_INSUFFICIENT_SPACE} if header occupies more bytes than srcSize.\n
+ *         {@link ERR_INVALID_DATA} if the provided data contains invalid values.\n
+ *         Other errors as raised by {@link extract_bits}.
+ */
+static HuffmanError parse_header(HuffmanHeader* header,
+								 uint8_t** src,
+								 uint8_t* start,
+								 uint64_t* srcSize) {
+	if (header == NULL || src == NULL || *src == NULL || start == NULL) {
+		return ERR_NULL_PTR;
+	}
+	if (srcSize < 2) { // require minimum 6 + 1 + 2 bits = 1 byte + 1 bit
+		return ERR_INVALID_VALUE;
+	}
+	uint64_t temp = 0;
+	uint8_t size;
+	uint8_t* tempPtr = *src;
+	uint8_t tempStart = 0;
+	uint64_t newSize = *srcSize;
+	HuffmanError err;
+
+	// parse wordSize
+	size = HUFFMAN_WORD_SIZE_NUM_BITS;
+	THROW_ERR(extract_bits(&temp, &tempPtr, &tempStart, size))
+
+	// invalid wordSize
+	if (temp < HUFFMAN_MIN_WORD_SIZE - 1 || temp > HUFFMAN_MAX_WORD_SIZE - 1) {
+		return ERR_INVALID_DATA;
+	}
+
+	// apply offset to obtain actual value
+	header->wordSize = (uint8_t)temp + 1;
+
+	// Ensure enough space is available
+	uint8_t log2wordSize = log2_ceil_u8(header->wordSize);
+	// Number of bits required to store header
+	uint8_t reqBits = HUFFMAN_WORD_SIZE_NUM_BITS + log2wordSize + header->wordSize;
+	uint8_t reqBytes = reqBits / 8;
+	if (*srcSize < reqBytes || (*srcSize == reqBytes && (reqBits % 8) > 0)) {
+		return ERR_INSUFFICIENT_SPACE;
+	}
+
+
+	// parse padBits
+	size = log2_ceil_u8(header->wordSize);
+	THROW_ERR(extract_bits(&temp, &tempPtr, &tempStart, size))
+	header->padBits = (uint8_t)temp;
+
+	// parse uniqueWords
+	size = header->wordSize;
+	THROW_ERR(extract_bits(&temp, &tempPtr, &tempStart, size))
+	header->uniqueWords = temp;
+
+	// success, update val
+	(*src) = tempPtr;
+	(*start) = tempStart;
+	(*srcSize) -= reqBytes;
+
+	return ERR_NO_ERR;
 }
 
 #ifdef __cplusplus
