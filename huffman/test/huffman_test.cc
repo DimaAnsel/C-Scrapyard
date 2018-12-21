@@ -1259,12 +1259,47 @@ TEST_F(HuffmanTest, parse_header) {
 	EXPECT_EQ(testArr + 3, testPtr);
 	EXPECT_EQ(0, start);
 	EXPECT_EQ(0, srcSize);
-	EXPECT_EQ(14, header.wordSize);
-	EXPECT_EQ(10, header.padBits);
-	EXPECT_EQ(0x53C, header.uniqueWords);
+	EXPECT_EQ(wordSize, header.wordSize);
+	EXPECT_EQ(padBits, header.padBits);
+	EXPECT_EQ(uniqueWords, header.uniqueWords);
 
 	// case 3: non-even byte size, limited space
+	wordSize = 24; // 6 + 5 + 24 = 35 bits = 4 bytes 3 bits
+	padBits = 13;
+	uniqueWords = 0x94F;
+	testPtr = testArr;
+	start = 0;
+	srcSize = 128;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &srcSize, wordSize - 1, (uint8_t)HUFFMAN_WORD_SIZE_NUM_BITS));
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &srcSize, padBits, log2_ceil_u64(wordSize)));
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &srcSize, uniqueWords, (uint8_t)wordSize));
+	testPtr = testArr;
+	srcSize = 5;
+	EXPECT_EQ(ERR_NO_ERR, parse_header(&header, &testPtr, &start, &srcSize));
+	EXPECT_EQ(testArr + 4, testPtr);
+	EXPECT_EQ(3, start);
+	EXPECT_EQ(1, srcSize);
+	EXPECT_EQ(wordSize, header.wordSize);
+	EXPECT_EQ(padBits, header.padBits);
+	EXPECT_EQ(uniqueWords, header.uniqueWords);
 
 	// case 4: max size
-
+	wordSize = 64; // 6 + 6 + 64 = 76 bits = 9 bytes 4 bits
+	padBits = 45;
+	uniqueWords = 0x2A8E403921893B6C;
+	testPtr = testArr;
+	start = 0;
+	srcSize = 128;
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &srcSize, wordSize - 1, (uint8_t)HUFFMAN_WORD_SIZE_NUM_BITS));
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &srcSize, padBits, log2_ceil_u64(wordSize)));
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &srcSize, uniqueWords, (uint8_t)wordSize));
+	testPtr = testArr;
+	srcSize = 10;
+	EXPECT_EQ(ERR_NO_ERR, parse_header(&header, &testPtr, &start, &srcSize));
+	EXPECT_EQ(testArr + 9, testPtr);
+	EXPECT_EQ(4, start);
+	EXPECT_EQ(1, srcSize);
+	EXPECT_EQ(wordSize, header.wordSize);
+	EXPECT_EQ(padBits, header.padBits);
+	EXPECT_EQ(uniqueWords, header.uniqueWords);
 }
