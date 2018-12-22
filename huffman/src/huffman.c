@@ -1,12 +1,15 @@
 /**
  * @file huffman.c
  *
- * Compact implementation of Huffman coding.
+ * Compact implementation of Huffman coding. Supports word sizes of 2 - 63 bits
+ * and file sizes up to ~16,000,000 TB (although that will probably take a while
+ * to process).
  */
 
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+
 #include "huffman.h"
 
 #ifdef __cplusplus
