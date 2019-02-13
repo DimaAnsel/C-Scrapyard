@@ -1408,3 +1408,67 @@ TEST_F(HuffmanTest, resize_table_errs) {
 	EXPECT_EQ(ERR_INVALID_VALUE, resize_table(&tablePtr, TEST_TABLE_SIZE, TEST_TABLE_SIZE - 1));
 	EXPECT_EQ(ERR_INVALID_VALUE, resize_table(&tablePtr, TEST_TABLE_SIZE, TEST_TABLE_SIZE));
 }
+
+TEST_F(HuffmanTest, resize_table) {
+	uint64_t* oldTable, *table;
+	uint64_t dst;
+	uint64_t* val, *id;
+
+	// Case I: full table
+	oldTable = (uint64_t*) malloc(2 * TEST_TABLE_SIZE * sizeof(uint64_t));
+	ASSERT_NE((uint64_t*)NULL, oldTable);
+	table = oldTable;
+	memset(table, 0x00, 2 * TEST_TABLE_SIZE * sizeof(uint64_t));
+	for (uint64_t i = 0; i < TEST_TABLE_SIZE; i++) {
+		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, table, TEST_TABLE_SIZE, i * 10 / 3, true));
+		val = get_table_value(table, dst);
+		*val = i + 1;
+		id = get_table_id(table, dst);
+		*id = i * 10 / 3;
+	}
+
+	EXPECT_EQ(ERR_NO_ERR, resize_table(&table, TEST_TABLE_SIZE, TEST_TABLE_SIZE + 3));
+	EXPECT_NE(oldTable, table);
+
+	// Validate contents
+	for (uint64_t i = 0; i < TEST_TABLE_SIZE; i++) {
+		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, table, TEST_TABLE_SIZE + 3, i * 10 / 3, false));
+		EXPECT_EQ(i + 1, *get_table_value(table, dst));
+		EXPECT_EQ(i * 10 / 3, *get_table_id(table, dst));
+		// Unoccupied
+		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, table, TEST_TABLE_SIZE + 3, i * 10 / 3 + 1, false));
+		EXPECT_EQ(0, *get_table_value(table, dst));
+		EXPECT_EQ(0, *get_table_id(table, dst));
+	}
+	free(table);
+
+
+	// Case II: partially full table
+	oldTable = (uint64_t*) malloc(2 * TEST_TABLE_SIZE * sizeof(uint64_t));
+	ASSERT_NE((uint64_t*)NULL, oldTable);
+	table = oldTable;
+	memset(table, 0x00, 2 * TEST_TABLE_SIZE * sizeof(uint64_t));
+	for (uint64_t i = 0; i < TEST_TABLE_SIZE / 2; i++) {
+		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, table, TEST_TABLE_SIZE, i * 10 / 3 + 3, true));
+		val = get_table_value(table, dst);
+		*val = TEST_TABLE_SIZE - i;
+		id = get_table_id(table, dst);
+		*id = i * 10 / 3 + 3;
+	}
+
+	EXPECT_EQ(ERR_NO_ERR, resize_table(&table, TEST_TABLE_SIZE, TEST_TABLE_SIZE + 3));
+	EXPECT_NE(oldTable, table);
+
+	// Validate contents
+	for (uint64_t i = 0; i < TEST_TABLE_SIZE / 2; i++) {
+		// Occupied
+		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, table, TEST_TABLE_SIZE + 3, i * 10 / 3 + 3, false));
+		EXPECT_EQ(TEST_TABLE_SIZE - i, *get_table_value(table, dst));
+		EXPECT_EQ(i * 10 / 3 + 3, *get_table_id(table, dst));
+		// Unoccupied
+		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, table, TEST_TABLE_SIZE + 3, i * 10 / 3 + 2, false));
+		EXPECT_EQ(0, *get_table_value(table, dst));
+		EXPECT_EQ(0, *get_table_id(table, dst));
+	}
+	free(table);
+}

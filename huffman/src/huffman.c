@@ -506,19 +506,32 @@ static HuffmanError resize_table(uint64_t** table, uint64_t tableSize, uint64_t 
 	if (!newTable) {
 		return ERR_INSUFFICIENT_SPACE;
 	}
+	memset(newTable, 0x00, 2 * sizeof(uint64_t) * newSize);
 
 	uint64_t currIdx, dstIdx;
-	uint64_t* val, *id;
+	uint64_t val, id;
+	uint64_t *dstVal, *dstId;
 	HuffmanError err;
 
 	for (currIdx = 0; currIdx < tableSize; currIdx++) {
-		val = get_table_value(oldTable, currIdx);
+		val = *get_table_value(oldTable, currIdx);
 
 		// Entry found
 		if (val) {
-			id = get_table_id(oldTable, currIdx);
+			id = *get_table_id(oldTable, currIdx);
 
-			err = search_table(&dstIdx, newTable, newSize, *id, true);
+			err = search_table(&dstIdx, newTable, newSize, id, true);
+			if (err) {
+				// Should be unreachable
+				free(newTable);
+				return err;
+			}
+
+			// Copy entry
+			dstVal = get_table_value(newTable, dstIdx);
+			dstId  = get_table_id(newTable, dstIdx);
+			*dstVal = val;
+			*dstId = id;
 		}
 	}
 
