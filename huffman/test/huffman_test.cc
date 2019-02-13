@@ -16,6 +16,11 @@
 #include "gtest/gtest.h"
 
 /**
+ * Capacity of hash table used in unit tests.
+ */
+#define TEST_TABLE_SIZE (uint64_t) 20
+
+/**
  * Test for huffman coding implementation.
  */
 class HuffmanTest: public ::testing::Test {
@@ -1310,8 +1315,8 @@ TEST_F(HuffmanTest, parse_header) {
  * Validates output for {@link get_table_value}.
  */
 TEST_F(HuffmanTest, get_table_value) {
-	uint64_t table[20];
-	for (uint64_t i = 0; i < 10; i++) {
+	uint64_t table[2 * TEST_TABLE_SIZE];
+	for (uint64_t i = 0; i < TEST_TABLE_SIZE; i++) {
 		EXPECT_EQ(&table[2 * i], get_table_value(table, i));
 	}
 }
@@ -1320,8 +1325,86 @@ TEST_F(HuffmanTest, get_table_value) {
  * Validates output for {@link get_table_id}.
  */
 TEST_F(HuffmanTest, get_table_id) {
-	uint64_t table[20];
-	for (uint64_t i = 0; i < 10; i++) {
+	uint64_t table[2 * TEST_TABLE_SIZE];
+	for (uint64_t i = 0; i < TEST_TABLE_SIZE; i++) {
 		EXPECT_EQ(&table[2 * i + 1], get_table_id(table, i));
 	}
+}
+
+/**
+ * Validates error handling of {@link search_table}.
+ */
+TEST_F(HuffmanTest, search_table_errs) {
+	uint64_t table[2 * TEST_TABLE_SIZE];
+	uint64_t dst;
+
+	// Full table
+	for (int i = 0; i < 2 * TEST_TABLE_SIZE; i++) {
+		table[i] = i + 1;
+	}
+	// Case I: entry not in table
+	EXPECT_EQ(ERR_INSUFFICIENT_SPACE, search_table(&dst, table, TEST_TABLE_SIZE, TEST_TABLE_SIZE * 5, false));
+	// Case II: entry in table but assuming no match exists
+	EXPECT_EQ(ERR_INSUFFICIENT_SPACE, search_table(&dst, table, TEST_TABLE_SIZE, (uint64_t)3, true));
+}
+
+/**
+ * Validates output for {@link search_table}.
+ */
+TEST_F(HuffmanTest, search_table) {
+	uint64_t table[2 * TEST_TABLE_SIZE];
+	uint64_t dst;
+	uint64_t* val, *id;
+
+	// Case I: full table
+	memset(table, 0x00, 2 * TEST_TABLE_SIZE * sizeof(uint64_t));
+	for (uint64_t i = 0; i < TEST_TABLE_SIZE; i++) {
+		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, table, TEST_TABLE_SIZE, i * 10 / 3, true));
+		val = get_table_value(table, dst);
+		*val = i + 1;
+		id = get_table_id(table, dst);
+		*id = i * 10 / 3;
+	}
+	for (uint64_t i = 0; i < TEST_TABLE_SIZE; i++) {
+		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, table, TEST_TABLE_SIZE, i * 10 / 3, false));
+		EXPECT_EQ(i + 1, *get_table_value(table, dst));
+		EXPECT_EQ(i * 10 / 3, *get_table_id(table, dst));
+	}
+
+	// Case II: partially full table
+	memset(table, 0x00, 2 * TEST_TABLE_SIZE * sizeof(uint64_t));
+	for (uint64_t i = 0; i < TEST_TABLE_SIZE / 2; i++) {
+		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, table, TEST_TABLE_SIZE, i * 10 / 3 + 3, true));
+		val = get_table_value(table, dst);
+		*val = TEST_TABLE_SIZE - i;
+		id = get_table_id(table, dst);
+		*id = i * 10 / 3 + 3;
+	}
+	for (uint64_t i = 0; i < TEST_TABLE_SIZE / 2; i++) {
+		// Occupied
+		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, table, TEST_TABLE_SIZE, i * 10 / 3 + 3, false));
+		EXPECT_EQ(TEST_TABLE_SIZE - i, *get_table_value(table, dst));
+		EXPECT_EQ(i * 10 / 3 + 3, *get_table_id(table, dst));
+		// Unoccupied
+		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, table, TEST_TABLE_SIZE, i * 10 / 3 + 2, false));
+		EXPECT_EQ(0, *get_table_value(table, dst));
+		EXPECT_EQ(0, *get_table_id(table, dst));
+	}
+}
+
+/**
+ * Validates error handling of {@link resize_table}.
+ */
+TEST_F(HuffmanTest, resize_table_errs) {
+	uint64_t* nullTable = NULL;
+	uint64_t table[1];
+	uint64_t* tablePtr = table;
+
+	EXPECT_EQ(ERR_NULL_PTR, resize_table(NULL, TEST_TABLE_SIZE, 2 * TEST_TABLE_SIZE));
+	EXPECT_EQ(ERR_NULL_PTR, resize_table(&nullTable, TEST_TABLE_SIZE, 2 * TEST_TABLE_SIZE));
+
+	EXPECT_EQ(ERR_INVALID_VALUE, resize_table(&tablePtr, (uint64_t)0, TEST_TABLE_SIZE));
+	EXPECT_EQ(ERR_INVALID_VALUE, resize_table(&tablePtr, TEST_TABLE_SIZE, (uint64_t)0));
+	EXPECT_EQ(ERR_INVALID_VALUE, resize_table(&tablePtr, TEST_TABLE_SIZE, TEST_TABLE_SIZE - 1));
+	EXPECT_EQ(ERR_INVALID_VALUE, resize_table(&tablePtr, TEST_TABLE_SIZE, TEST_TABLE_SIZE));
 }

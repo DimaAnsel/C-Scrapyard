@@ -475,6 +475,22 @@ static HuffmanError search_table(uint64_t* dstIdx,
 	return ERR_INSUFFICIENT_SPACE;
 }
 
+/**
+ * Attempts to resize a table to a new, larger size.
+ *
+ * @warning Must be able to allocate new table prior to releasing existing table.
+ *
+ * @param[in,out] table     Table to be resized. Updated to location of new table
+ *							upon successful resize.
+ * @param[in]     tableSize Maximum number of entries in existing table.
+ * @param[in]     newSize   Maximum number of entries in resized table.
+ *
+ * @return {@link ERR_NO_ERR} if no error occurred.\n
+ *		   {@link ERR_NULL_PTR} if table is null or points to null.\n
+ *		   {@link ERR_INVALID_VALUE} if sizes are 0 or new table size is less
+ *				than existing table size.
+ *		   {@link ERR_INSUFFICIENT_SPACE} if unable to allocate new table.
+ */
 static HuffmanError resize_table(uint64_t** table, uint64_t tableSize, uint64_t newSize) {
 	if (table == NULL || *table == NULL) {
 		return ERR_NULL_PTR;
@@ -505,6 +521,10 @@ static HuffmanError resize_table(uint64_t** table, uint64_t tableSize, uint64_t 
 			err = search_table(&dstIdx, newTable, newSize, *id, true);
 		}
 	}
+
+	// Release and migrate pointer
+	free(oldTable);
+	*table = newTable;
 	return ERR_NO_ERR;
 }
 
