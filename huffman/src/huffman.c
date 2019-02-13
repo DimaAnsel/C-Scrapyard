@@ -1,13 +1,17 @@
 /**
  * @file huffman.c
  *
- * Compact implementation of Huffman coding. Supports word sizes of 2 - 63 bits
+ * Compact implementation of Huffman coding. Supports word sizes of 2 - 60 bits
  * and file sizes up to ~16,000,000 TB (although that will probably take a while
  * to process).
+ *
+ * @date	2018-12-22
+ * @author	Noah Ansel
  */
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <stdbool.h>
 
 #include "huffman.h"
@@ -269,7 +273,7 @@ static HuffmanError build_header(uint8_t** dst,
 	if (dst == NULL || *dst == NULL || start == NULL || dstSize == NULL || header == NULL) {
 		return ERR_NULL_PTR;
 	}
-	uint64_t maxWords = (header->wordSize == 64) ? HUFFMAN_MAX_UNIQUE_WORDS : (((uint64_t)0x1) << header->wordSize) - 1;
+	uint64_t maxWords = (((uint64_t)0x1) << header->wordSize);
 	if (header->wordSize < HUFFMAN_MIN_WORD_SIZE || header->wordSize > HUFFMAN_MAX_WORD_SIZE ||
 			header->uniqueWords > maxWords || header->padBits >= header->wordSize) {
 		return ERR_INVALID_VALUE;
@@ -289,11 +293,11 @@ static HuffmanError build_header(uint8_t** dst,
 	uint64_t newSize = *dstSize;
 
 	// word size
-	THROW_ERR(put_bits(&currDst, &currBit, &newSize, (uint64_t)header->wordSize - 1, (uint8_t)HUFFMAN_WORD_SIZE_NUM_BITS))
+	THROW_ERR(put_bits(&currDst, &currBit, &newSize, (uint64_t)header->wordSize, (uint8_t)HUFFMAN_WORD_SIZE_NUM_BITS))
 	// pad bits
 	THROW_ERR(put_bits(&currDst, &currBit, &newSize, (uint64_t)header->padBits, log2wordSize))
 	// unique words
-	THROW_ERR(put_bits(&currDst, &currBit, &newSize, header->uniqueWords, header->wordSize))
+	THROW_ERR(put_bits(&currDst, &currBit, &newSize, header->uniqueWords - 1, header->wordSize))
 
 	// update after all successful
 	(*dst) = currDst;
@@ -344,12 +348,12 @@ static HuffmanError parse_header(HuffmanHeader* header,
 	THROW_ERR(extract_bits(&temp, &tempPtr, &tempStart, size))
 
 	// invalid wordSize
-	if (temp < HUFFMAN_MIN_WORD_SIZE - 1 || temp > HUFFMAN_MAX_WORD_SIZE - 1) {
+	if (temp < HUFFMAN_MIN_WORD_SIZE || temp > HUFFMAN_MAX_WORD_SIZE) {
 		return ERR_INVALID_DATA;
 	}
 
 	// apply offset to obtain actual value
-	header->wordSize = (uint8_t)temp + 1;
+	header->wordSize = (uint8_t)temp;
 
 	// Ensure enough space is available
 	uint8_t log2wordSize = log2_ceil_u8(header->wordSize);
@@ -372,12 +376,228 @@ static HuffmanError parse_header(HuffmanHeader* header,
 	// parse uniqueWords
 	size = header->wordSize;
 	THROW_ERR(extract_bits(&temp, &tempPtr, &tempStart, size))
-	header->uniqueWords = temp;
+	header->uniqueWords = temp + 1;
 
 	// success, update val
 	(*src) = tempPtr;
 	(*start) = tempStart;
 	(*srcSize) -= reqBytes;
+
+	return ERR_NO_ERR;
+}
+
+/**
+ * Obtains pointer to location of table value.
+ *
+ * @param[in] table Reference to table.
+ * @param[in] idx   Index of value to be retrieved.
+ *
+ * @return Pointer to value at provided index.
+ */
+static inline uint64_t* get_table_value(uint64_t* table,
+										uint64_t idx) {
+	return &table[2 * idx];
+}
+
+/**
+ * Obtains pointer to location of table id.
+ *
+ * @param[in] table Reference to table.
+ * @param[in] idx   Index of id to be retrieved.
+ *
+ * @return Pointer to id at provided index.
+ */
+static inline uint64_t* get_table_id(uint64_t* table,
+								 	 uint64_t idx) {
+	return &table[2 * idx + 1];
+}
+
+/**
+ * @ingroup HuffmanHelpers
+ * Hashing function for table used in {@link generate_table}.
+ *
+ * @param[in] val    Value to be hashed
+ * @param[in] maxVal Maximum value (table size).
+ *
+ * @return Hashing function result.
+ */
+static inline uint64_t get_hash(uint64_t val,
+								uint64_t maxVal) {
+	// todo implement variable FNV with folding
+	return val % maxVal;
+}
+
+/**
+ * Searches hash table for entry that is empty or matches desired id.
+ *
+ * @param[out] dstIdx        Matching or unoccupied index.
+ * @param[in]  table         Table to be searched.
+ * @param[in]  tableSize     Number of entries in table.
+ * @param[in]  searchId      Desired id.
+ * @param[in]  assumeNoMatch If true, algorithm assumes table does not contain
+ *							 matching id (for example, when resizing table).
+ *
+ * @return {@link ERR_NO_ERR} if no error occurred.\n
+ *		   {@link ERR_INSUFFICIENT_SPACE} if table is full and no entry with
+ *				matching value was found. Indicates a larger table is needed.
+ */
+static HuffmanError search_table(uint64_t* dstIdx,
+								 uint64_t* table,
+								 uint64_t tableSize,
+								 uint64_t searchId,
+								 bool assumeNoMatch) {
+	uint64_t* id, *val;
+	uint64_t curr = get_hash(searchId, tableSize);
+	uint64_t last = (curr + (tableSize - 1)) % tableSize;
+
+	// todo analyze hash & step function performance
+	while (curr != last) {
+		// Check for empty
+		val = get_table_value(table, curr);
+		if (*val == 0) {
+			*dstIdx = curr;
+			return ERR_NO_ERR;
+		}
+
+		// Check for identical id
+		if (!assumeNoMatch) { // todo measure effect of skipping this step during resize
+			id = get_table_id(table, curr);
+			if (*id == searchId) {
+				*dstIdx = curr;
+				return ERR_NO_ERR;
+			}
+		}
+
+		// Not found, move to next index
+		curr = (curr + 1) % tableSize; // todo consider different step functions
+	}
+	// Table full and id not found
+	return ERR_INSUFFICIENT_SPACE;
+}
+
+static HuffmanError resize_table(uint64_t** table, uint64_t tableSize, uint64_t newSize) {
+	if (table == NULL || *table == NULL) {
+		return ERR_NULL_PTR;
+	}
+
+	if (tableSize == 0 || newSize == 0 || newSize <= tableSize) {
+		return ERR_INVALID_VALUE;
+	}
+
+	// Init pointers and allocate
+	uint64_t* oldTable = *table;
+	uint64_t* newTable = (uint64_t*) malloc(2 * sizeof(uint64_t) * newSize);
+	if (!newTable) {
+		return ERR_INSUFFICIENT_SPACE;
+	}
+
+	uint64_t currIdx, dstIdx;
+	uint64_t* val, *id;
+	HuffmanError err;
+
+	for (currIdx = 0; currIdx < tableSize; currIdx++) {
+		val = get_table_value(oldTable, currIdx);
+
+		// Entry found
+		if (val) {
+			id = get_table_id(oldTable, currIdx);
+
+			err = search_table(&dstIdx, newTable, newSize, *id, true);
+		}
+	}
+	return ERR_NO_ERR;
+}
+
+/**
+ * @ingroup HuffmanHelpers
+ * Generates and populates hash table of word frequencies.
+ *
+ * @warning This allocates a table that must be freed later.
+ *
+ * @param[out] hdr      Header populated with metadata.
+ * @param[out] dst      Pointer to allocated table. Must be freed by calling function.
+ * @param[in]  src      Data to be converted.
+ * @param[in]  srcSize  Size of data in bytes.
+ * @param[in]  wordSize Word size used for compression.
+ *
+ * @return {@link ERR_NO_ERR} if no error occurred.\n
+ *         {@link ERR_NULL_PTR} if a parameter is null.\n
+ *         {@link ERR_INVALID_VALUE} if srcSize or wordSize are out of accepted range.\n
+ *         {@link ERR_INSUFFICIENT_SPACE} if unable to allocate sufficient memory
+ *         		for table.\n
+ *         Other errors as raised by {@link extract_bits}.
+ */
+static HuffmanError generate_table(HuffmanHeader* hdr,
+								   uint64_t** dst,
+								   uint8_t* src,
+								   uint64_t srcSize,
+								   uint8_t wordSize) {
+	if (hdr == NULL || dst == NULL || src == NULL) {
+		return ERR_NULL_PTR;
+	}
+
+	if (srcSize < 1 ||
+			wordSize < HUFFMAN_MIN_WORD_SIZE ||
+			wordSize > HUFFMAN_MAX_WORD_SIZE) {
+		return ERR_INVALID_VALUE;
+	}
+
+	// Max size range 1 to (8 + 8) * 2^59 bytes
+	// NOTE: fails if wordSize = 60 and 2^60 unique words found
+	uint64_t maxSize = (wordSize < 59) ? ((uint64_t)1) << wordSize : ((uint64_t)1) << 59;
+
+	// Table initially 1/256th to all of max size, depending on word size
+	uint64_t tableSize = 1 << (wordSize - wordSize / 4);
+	uint64_t freeEntries = tableSize;
+
+	uint64_t* table = (uint64_t*) malloc(2 * sizeof(uint64_t) * tableSize);
+	if (!table) {
+		return ERR_INSUFFICIENT_SPACE;
+	}
+	memset(table, 0x0, 2 * sizeof(uint64_t) * tableSize);
+
+
+	uint8_t* currPtr = src;
+	uint8_t  currBit = 0;
+	uint8_t* maxPtr = src + srcSize;
+	uint64_t  currWord;
+	HuffmanError err;
+	uint64_t idx;
+
+	// todo parse
+	while ((maxPtr - currPtr) * 8 - currBit > wordSize) {
+		// Get next word
+		err = extract_bits(&currWord, &currPtr, &currBit, wordSize);
+		if (err != ERR_NO_ERR) {
+			free(table);
+			return err;
+		}
+
+		// Find in hash table
+		err = search_table(&idx, table, tableSize, currWord, false);
+
+		// Check for full table, resize if necessary
+		if (err == ERR_INSUFFICIENT_SPACE) {
+			if (tableSize < maxSize || tableSize * 2 <= maxSize) {
+				// Resize table
+				int newSize = (tableSize * 2 <= maxSize) ? tableSize * 2 : maxSize;
+				THROW_ERR(resize_table(&table, tableSize, newSize));
+			} else {
+				// Cannot resize table
+				free(table);
+				return ERR_INSUFFICIENT_SPACE;
+			}
+		}
+
+		// todo Add to table, check for overflow
+
+
+
+	}
+
+	// todo handle overflow/last word
+
+	*dst = table;
 
 	return ERR_NO_ERR;
 }

@@ -2,6 +2,9 @@
  * @file huffman.h
  *
  * Interface for {@link huffman.c}.
+ *
+ * @date	2018-12-22
+ * @author	Noah Ansel
  */
 
 #ifdef __cplusplus
@@ -29,20 +32,13 @@ extern "C" {
  * @ingroup HuffmanConstants
  * Maximum supported word size for Huffman encoding.
  */
-#define HUFFMAN_MAX_WORD_SIZE 64
+#define HUFFMAN_MAX_WORD_SIZE 60
 
 /**
  * @ingroup HuffmanConstants
  * Number of bits required for word size in file header.
  */
 #define HUFFMAN_WORD_SIZE_NUM_BITS 6
-
-/**
- * @ingroup HuffmanConstants
- * Maximum value of {@link HuffmanHeader#uniqueWords}. Note that compression
- * algorithm supports 2^64 words although this constant is set to 2^64 - 1.
- */
-#define HUFFMAN_MAX_UNIQUE_WORDS ((uint64_t)0xFFFFFFFFFFFFFFFF)
 
 /**
  * @ingroup HuffmanConstants
@@ -68,15 +64,15 @@ typedef enum HuffmanError_enum {
  */
 typedef struct HuffmanHeader_struct {
 	/**
-	 * Word size in bits used for compression. Range 2 - 64.
+	 * Word size in bits used for compression. Range 2 - 60.
 	 *
 	 * Stored value is same as actual value.
-	 * Value in file is actual value - 1 to fit within 6 bits.
+	 * Value in file is same as actual value.
 	 */
 	uint8_t wordSize;
 	/**
 	 * Number of bits of padding (0's) added to end of data to end on a
-	 * word boundary. Range 0 - 63.
+	 * word boundary. Range 0 - 59.
 	 *
 	 * Stored value is same as actual value.
 	 * Value in file is same as actual value.
@@ -84,14 +80,50 @@ typedef struct HuffmanHeader_struct {
 	uint8_t padBits;
 	/**
 	 * Number of unique words in data, including word with
-	 * {@link HuffmanHeader#padBits}. Range 0 to 2^64 - 1.
+	 * {@link HuffmanHeader#padBits}. Range 1 to 2^60.
 	 *
-	 * Stored value is actual value - 1 to fit in uint64_t since actual value
-	 * should never equal 0.
-	 * Value in file is actual value - 1 to fit within 64 bits.
+	 * Stored value is same as actual value.
+	 * Value in file is actual value - 1 to fit within 60 bits.
 	 */
 	uint64_t uniqueWords;
 } HuffmanHeader;
+
+typedef struct HuffmanHashTable_struct {
+	uint8_t wordSize;
+	void* table;
+} HuffmanHashTable;
+
+/**
+ * Standard interface to get size of value in bits for index
+ * using a given mapping.
+ *
+ * @see map.c
+ */
+typedef uint64_t (*get_compressed_size_fcn) (uint64_t idx,
+											 uint64_t maxIdx,
+											 uint8_t depth);
+
+/**
+ * Standard interface to get value for index using a given mapping.
+ *
+ * @see map.c
+ */
+typedef uint64_t (*get_compressed_val_fcn) (uint64_t idx,
+											uint64_t maxIdx,
+											uint8_t depth);
+
+/**
+ * Standard interface to get index referenced by compressed value
+ * using a given mapping. Also updates
+ *
+ * @see map.c
+ */
+typedef HuffmanError (*parse_compressed_idx_fcn) (uint64_t* dst,
+												  uint8_t** src,
+												  uint8_t* start,
+												  uint8_t size,
+												  uint64_t maxIdx,
+												  uint8_t depth);
 
 #endif // __HUFFMAN_H_
 

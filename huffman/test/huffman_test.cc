@@ -1058,7 +1058,7 @@ TEST_F(HuffmanTest, build_header_errs) {
 	EXPECT_EQ(ERR_INVALID_VALUE, build_header(&testPtr, &start, &dst_size, &header));
 	header.wordSize = 3;
 	header.padBits = 0;
-	header.uniqueWords = 8;
+	header.uniqueWords = 9;
 	EXPECT_EQ(ERR_INVALID_VALUE, build_header(&testPtr, &start, &dst_size, &header));
 
 	// size validation
@@ -1067,8 +1067,8 @@ TEST_F(HuffmanTest, build_header_errs) {
 	header.wordSize = 9;
 	header.uniqueWords = 1;
 	EXPECT_EQ(ERR_INSUFFICIENT_SPACE, build_header(&testPtr, &start, &dst_size, &header));
-	header.wordSize = 64;
-	dst_size = 9; // (6 + 8 + 64) / 8 = 78 / 8 = 9 R 6
+	header.wordSize = 60;
+	dst_size = 8; // (6 + 6 + 60) / 8 = 72 / 8 = 9 R 0
 	EXPECT_EQ(ERR_INSUFFICIENT_SPACE, build_header(&testPtr, &start, &dst_size, &header));
 	dst_size = 2;
 	EXPECT_EQ(ERR_INSUFFICIENT_SPACE, build_header(&testPtr, &start, &dst_size, &header));
@@ -1128,7 +1128,7 @@ TEST_F(HuffmanTest, build_header) {
 	uint8_t tempStart;
 	uint64_t temp;
 
-	for (wordSize = 2; wordSize <= 64; wordSize++) {
+	for (wordSize = 2; wordSize <= HUFFMAN_MAX_WORD_SIZE; wordSize++) {
 		testPtr = testArr;
 		tempPtr = testArr;
 		tempStart = 0;
@@ -1141,9 +1141,11 @@ TEST_F(HuffmanTest, build_header) {
 		EXPECT_EQ(ERR_NO_ERR, build_header(&testPtr, &start, &dst_size, &header));
 		// validate contents
 		extract_bits(&temp, &tempPtr, &tempStart, HUFFMAN_WORD_SIZE_NUM_BITS);
-		EXPECT_EQ((uint64_t)wordSize - 1, temp);
+		EXPECT_EQ((uint64_t)wordSize, temp);
 		extract_bits(&temp, &tempPtr, &tempStart, (uint64_t)log2_ceil_u8(wordSize));
 		EXPECT_EQ((uint64_t)header.padBits, temp);
+		extract_bits(&temp, &tempPtr, &tempStart, (uint64_t)wordSize);
+		EXPECT_EQ((uint64_t)header.uniqueWords - 1, temp);
 
 		// validate variables
 		EXPECT_EQ(&testArr[numBits / 8], testPtr);
@@ -1230,18 +1232,18 @@ TEST_F(HuffmanTest, parse_header) {
 	wordSize = 2;
 	padBits = 1;
 	uniqueWords = 3; // 2^2 - 1
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &srcSize, wordSize - 1, (uint8_t)HUFFMAN_WORD_SIZE_NUM_BITS));
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &srcSize, wordSize, (uint8_t)HUFFMAN_WORD_SIZE_NUM_BITS));
 	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &srcSize, padBits, log2_ceil_u64(wordSize)));
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &srcSize, uniqueWords, (uint8_t)wordSize));
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &srcSize, uniqueWords - 1, (uint8_t)wordSize));
 	testPtr = testArr;
 	srcSize = 2;
 	EXPECT_EQ(ERR_NO_ERR, parse_header(&header, &testPtr, &start, &srcSize));
 	EXPECT_EQ(testArr + 1, testPtr);
 	EXPECT_EQ(1, start);
 	EXPECT_EQ(1, srcSize);
-	EXPECT_EQ(2, header.wordSize);
-	EXPECT_EQ(1, header.padBits);
-	EXPECT_EQ(3, header.uniqueWords);
+	EXPECT_EQ(wordSize, header.wordSize);
+	EXPECT_EQ(padBits, header.padBits);
+	EXPECT_EQ(uniqueWords, header.uniqueWords);
 
 	// case 2: even byte size, limited space
 	wordSize = 14;
@@ -1250,9 +1252,9 @@ TEST_F(HuffmanTest, parse_header) {
 	testPtr = testArr;
 	start = 0;
 	srcSize = 128;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &srcSize, wordSize - 1, (uint8_t)HUFFMAN_WORD_SIZE_NUM_BITS));
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &srcSize, wordSize, (uint8_t)HUFFMAN_WORD_SIZE_NUM_BITS));
 	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &srcSize, padBits, log2_ceil_u64(wordSize)));
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &srcSize, uniqueWords, (uint8_t)wordSize));
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &srcSize, uniqueWords - 1, (uint8_t)wordSize));
 	testPtr = testArr;
 	srcSize = 3;
 	EXPECT_EQ(ERR_NO_ERR, parse_header(&header, &testPtr, &start, &srcSize));
@@ -1270,9 +1272,9 @@ TEST_F(HuffmanTest, parse_header) {
 	testPtr = testArr;
 	start = 0;
 	srcSize = 128;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &srcSize, wordSize - 1, (uint8_t)HUFFMAN_WORD_SIZE_NUM_BITS));
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &srcSize, wordSize, (uint8_t)HUFFMAN_WORD_SIZE_NUM_BITS));
 	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &srcSize, padBits, log2_ceil_u64(wordSize)));
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &srcSize, uniqueWords, (uint8_t)wordSize));
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &srcSize, uniqueWords - 1, (uint8_t)wordSize));
 	testPtr = testArr;
 	srcSize = 5;
 	EXPECT_EQ(ERR_NO_ERR, parse_header(&header, &testPtr, &start, &srcSize));
@@ -1284,22 +1286,42 @@ TEST_F(HuffmanTest, parse_header) {
 	EXPECT_EQ(uniqueWords, header.uniqueWords);
 
 	// case 4: max size
-	wordSize = 64; // 6 + 6 + 64 = 76 bits = 9 bytes 4 bits
+	wordSize = HUFFMAN_MAX_WORD_SIZE; // 6 + 6 + 64 = 76 bits = 9 bytes 4 bits
 	padBits = 45;
-	uniqueWords = 0x2A8E403921893B6C;
+	uniqueWords = 0xA8E403921893B6C;
 	testPtr = testArr;
 	start = 0;
 	srcSize = 128;
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &srcSize, wordSize - 1, (uint8_t)HUFFMAN_WORD_SIZE_NUM_BITS));
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &srcSize, wordSize, (uint8_t)HUFFMAN_WORD_SIZE_NUM_BITS));
 	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &srcSize, padBits, log2_ceil_u64(wordSize)));
-	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &srcSize, uniqueWords, (uint8_t)wordSize));
+	EXPECT_EQ(ERR_NO_ERR, put_bits(&testPtr, &start, &srcSize, uniqueWords - 1, (uint8_t)wordSize));
 	testPtr = testArr;
 	srcSize = 10;
 	EXPECT_EQ(ERR_NO_ERR, parse_header(&header, &testPtr, &start, &srcSize));
 	EXPECT_EQ(testArr + 9, testPtr);
-	EXPECT_EQ(4, start);
+	EXPECT_EQ(0, start);
 	EXPECT_EQ(1, srcSize);
 	EXPECT_EQ(wordSize, header.wordSize);
 	EXPECT_EQ(padBits, header.padBits);
 	EXPECT_EQ(uniqueWords, header.uniqueWords);
+}
+
+/**
+ * Validates output for {@link get_table_value}.
+ */
+TEST_F(HuffmanTest, get_table_value) {
+	uint64_t table[20];
+	for (uint64_t i = 0; i < 10; i++) {
+		EXPECT_EQ(&table[2 * i], get_table_value(table, i));
+	}
+}
+
+/**
+ * Validates output for {@link get_table_id}.
+ */
+TEST_F(HuffmanTest, get_table_id) {
+	uint64_t table[20];
+	for (uint64_t i = 0; i < 10; i++) {
+		EXPECT_EQ(&table[2 * i + 1], get_table_id(table, i));
+	}
 }
