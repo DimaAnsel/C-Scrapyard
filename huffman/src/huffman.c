@@ -578,6 +578,10 @@ static HuffmanError add_to_table(HuffmanHashTable* table,
 		return ERR_NULL_PTR;
 	}
 
+	if (table->size == 0 || maxSize < table->size) {
+		return ERR_INVALID_VALUE;
+	}
+
 	HuffmanError err;
 	uint64_t idx;
 	uint64_t *dstVal, *dstId;
@@ -617,6 +621,9 @@ static HuffmanError add_to_table(HuffmanHashTable* table,
 	if (*dstVal == HUFFMAN_MAX_UINT64) {
 		return ERR_OVERFLOW;
 	} else if (*dstVal == 0) {
+		if (*numWords == HUFFMAN_MAX_UINT64) {
+			return ERR_OVERFLOW;
+		}
 		(*numWords)++;
 		*dstId = word;
 	}

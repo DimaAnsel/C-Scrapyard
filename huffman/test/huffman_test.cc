@@ -1514,14 +1514,135 @@ TEST_F(HuffmanTest, resize_table) {
  * Validates error handling of {@link add_to_table}.
  */
 TEST_F(HuffmanTest, add_to_table_errs) {
-	EXPECT_FALSE(true);
+	HuffmanHashTable table;
+	uint64_t numWords = 0;
+	uint64_t word;
+	uint64_t maxSize;
+	HuffmanError err;
+	uint64_t tableDat[2 * sizeof(uint64_t) * 4];
+	uint64_t *dstVal, *dstId;
+	uint64_t i, idx;
+
+	// Null pointer
+	table.table = NULL;
+	table.size = 4;
+	maxSize = 4;
+	EXPECT_EQ(ERR_NULL_PTR, add_to_table(NULL, &numWords, word, maxSize));
+	EXPECT_EQ(ERR_NULL_PTR, add_to_table(&table, &numWords, word, maxSize));
+	table.table = tableDat;
+	EXPECT_EQ(ERR_NULL_PTR, add_to_table(&table, NULL, word, maxSize));
+
+	// Value checking
+	table.size = 0;
+	EXPECT_EQ(ERR_INVALID_VALUE, add_to_table(&table, &numWords, word, maxSize));
+	table.size = 4;
+	maxSize = 3;
+	EXPECT_EQ(ERR_INVALID_VALUE, add_to_table(&table, &numWords, word, maxSize));
+
+	// Insufficient space
+	for (i = 0; i < table.size; i++) {
+		idx = get_hash(i + 1, table.size);
+		dstVal = get_table_value(tableDat, idx);
+		dstId = get_table_id(tableDat, idx);
+		*dstVal = i + 10;
+		*dstId = i + 1;
+	}
+	maxSize = 4;
+	word = i + 1;
+	EXPECT_EQ(ERR_INSUFFICIENT_SPACE, add_to_table(&table, &numWords, word, maxSize));
+
+	// Overflow
+	word = (uint64_t) 1;
+	idx = get_hash(word, table.size);
+	dstVal = get_table_value(tableDat, idx);
+	*dstVal = HUFFMAN_MAX_UINT64;
+	EXPECT_EQ(ERR_OVERFLOW, add_to_table(&table, &numWords, word, maxSize));
+	*dstVal = (uint64_t) 0;
+	dstId = get_table_id(tableDat, idx);
+	*dstId = (uint64_t) 0;
+	numWords = HUFFMAN_MAX_UINT64;
+	EXPECT_EQ(ERR_OVERFLOW, add_to_table(&table, &numWords, word, maxSize));
 }
 
 /**
  * Validates output of {@link add_to_table}.
  */
 TEST_F(HuffmanTest, add_to_table) {
-	EXPECT_FALSE(true);
+	HuffmanHashTable table;
+	uint64_t numWords = 0;
+	uint64_t word;
+	uint64_t maxSize;
+	HuffmanError err;
+	uint64_t *dstVal, *dstId;
+	uint64_t i, idx;
+
+	// Case I: empty, new value
+	table.table = (uint64_t*) malloc(2 * sizeof(uint64_t) * 4);
+	memset(table.table, 0x00, 2 * sizeof(uint64_t) * 4);
+	table.size = 4;
+	maxSize = 4;
+	word = 0x2;
+	EXPECT_EQ(ERR_NO_ERR, add_to_table(&table, &numWords, word, maxSize));
+	EXPECT_EQ(1, numWords);
+	EXPECT_EQ(ERR_NO_ERR, search_table(&idx, &table, word, false));
+	EXPECT_EQ(1, *get_table_value(table.table, idx));
+	EXPECT_EQ(word, *get_table_id(table.table, idx));
+	// table is currently: {2:1}
+
+	// Case II: non-empty, new value (also test search function)
+	word = 0x6;
+	EXPECT_EQ(ERR_NO_ERR, add_to_table(&table, &numWords, word, maxSize));
+	EXPECT_EQ(2, numWords);
+	EXPECT_EQ(ERR_NO_ERR, search_table(&idx, &table, word, false));
+	EXPECT_EQ(1, *get_table_value(table.table, idx));
+	EXPECT_EQ(word, *get_table_id(table.table, idx));
+	// table is currently: {2:1, 6:1}
+
+	// Case III: non-empty, increment
+	EXPECT_EQ(ERR_NO_ERR, add_to_table(&table, &numWords, word, maxSize));
+	EXPECT_EQ(2, numWords);
+	EXPECT_EQ(ERR_NO_ERR, search_table(&idx, &table, word, false));
+	EXPECT_EQ(2, *get_table_value(table.table, idx));
+	EXPECT_EQ(word, *get_table_id(table.table, idx));
+	// table is currently: {2:1, 6:2}
+
+	// Case IV: full, increment
+	word = 0x1;
+	EXPECT_EQ(ERR_NO_ERR, add_to_table(&table, &numWords, word, maxSize));
+	word = 0x3;
+	EXPECT_EQ(ERR_NO_ERR, add_to_table(&table, &numWords, word, maxSize));
+	// table is currently: {1:1, 2:1, 3:1, 6:2}
+	EXPECT_EQ(ERR_NO_ERR, add_to_table(&table, &numWords, word, maxSize));
+	EXPECT_EQ(4, numWords);
+	EXPECT_EQ(ERR_NO_ERR, search_table(&idx, &table, word, false));
+	EXPECT_EQ(2, *get_table_value(table.table, idx));
+	EXPECT_EQ(word, *get_table_id(table.table, idx));
+	// table is currently: {1:1, 2:1, 3:2, 6:2}
+
+	// Case V: full, new value (resize), newSize < maxSize
+	word = 0x9;
+	maxSize = 10;
+	EXPECT_EQ(ERR_NO_ERR, add_to_table(&table, &numWords, word, maxSize));
+	EXPECT_EQ(5, numWords);
+	EXPECT_EQ(8, table.size);
+	EXPECT_EQ(ERR_NO_ERR, search_table(&idx, &table, word, false));
+	EXPECT_EQ(1, *get_table_value(table.table, idx));
+	EXPECT_EQ(word, *get_table_id(table.table, idx));
+	// table is currently: {1:1, 2:1, 3:2, 6:2, 9:1}
+
+	// Case VI: full, new value (resize), newSize > maxSize
+	for (i = 0; numWords < table.size; i++) {
+		word = 0x10 + i;
+		EXPECT_EQ(ERR_NO_ERR, add_to_table(&table, &numWords, word, maxSize));
+	}
+	// table is currently: {x1:1, x2:1, x3:2, x6:2, x9:1, x10:1, x11:1, x12:1}
+	word = 0x20;
+	EXPECT_EQ(ERR_NO_ERR, add_to_table(&table, &numWords, word, maxSize));
+	EXPECT_EQ(9, numWords);
+	EXPECT_EQ(maxSize, table.size);
+	EXPECT_EQ(ERR_NO_ERR, search_table(&idx, &table, word, false));
+	EXPECT_EQ(1, *get_table_value(table.table, idx));
+	EXPECT_EQ(word, *get_table_id(table.table, idx));
 }
 
 /**
