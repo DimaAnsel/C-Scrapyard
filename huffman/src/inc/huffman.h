@@ -42,6 +42,12 @@ extern "C" {
 
 /**
  * @ingroup HuffmanConstants
+ * Maximum value stored in uint64_t type, used for overflow checking.
+ */
+#define HUFFMAN_MAX_UINT64 ((uint64_t)0xFFFFFFFFFFFFFFFF)
+
+/**
+ * @ingroup HuffmanConstants
  * @enum HuffmanError
  * Return codes for functions in {@link huffman.c}.
  */
@@ -55,7 +61,12 @@ typedef enum HuffmanError_enum {
 	/**The destination does not contain enough space to store function result.*/
 	ERR_INSUFFICIENT_SPACE,
 	/**The compressed source contained invalid data.*/
-	ERR_INVALID_DATA
+	ERR_INVALID_DATA,
+	/**
+	 * Counter overflowed.
+	 * This can occur if source contains too many copies of a given word.
+	 */
+	ERR_OVERFLOW
 } HuffmanError;
 
 /**
@@ -87,11 +98,6 @@ typedef struct HuffmanHeader_struct {
 	 */
 	uint64_t uniqueWords;
 } HuffmanHeader;
-
-typedef struct HuffmanHashTable_struct {
-	uint8_t wordSize;
-	void* table;
-} HuffmanHashTable;
 
 /**
  * Standard interface to get size of value in bits for index

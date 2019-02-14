@@ -1409,6 +1409,9 @@ TEST_F(HuffmanTest, resize_table_errs) {
 	EXPECT_EQ(ERR_INVALID_VALUE, resize_table(&tablePtr, TEST_TABLE_SIZE, TEST_TABLE_SIZE));
 }
 
+/**
+ * Validates output of {@link resize_table}.
+ */
 TEST_F(HuffmanTest, resize_table) {
 	uint64_t* oldTable, *table;
 	uint64_t dst;
@@ -1471,4 +1474,42 @@ TEST_F(HuffmanTest, resize_table) {
 		EXPECT_EQ(0, *get_table_id(table, dst));
 	}
 	free(table);
+}
+
+/**
+ * Validates error handling of {@link generate_table}.
+ */
+TEST_F(HuffmanTest, generate_table_errs) {
+	HuffmanHeader header;
+	uint64_t* table = NULL;
+	uint8_t srcDummy[1];
+	uint8_t* src;
+	uint64_t srcSize;
+	uint8_t wordSize;
+
+	srcSize = 32;
+	wordSize = 32;
+
+	// Null pointer
+	EXPECT_EQ(ERR_NULL_PTR, generate_table(NULL, &table, srcDummy, srcSize, wordSize));
+	EXPECT_EQ(ERR_NULL_PTR, generate_table(&header, NULL, srcDummy, srcSize, wordSize));
+	EXPECT_EQ(ERR_NULL_PTR, generate_table(&header, &table, NULL, srcSize, wordSize));
+
+	// Invalid parameters
+	wordSize = HUFFMAN_MIN_WORD_SIZE - 1;
+	EXPECT_EQ(ERR_INVALID_VALUE, generate_table(&header, &table, srcDummy, srcSize, wordSize));
+	wordSize = HUFFMAN_MAX_WORD_SIZE + 1;
+	EXPECT_EQ(ERR_INVALID_VALUE, generate_table(&header, &table, srcDummy, srcSize, wordSize));
+	wordSize = 32;
+	srcSize = 0;
+	EXPECT_EQ(ERR_INVALID_VALUE, generate_table(&header, &table, srcDummy, srcSize, wordSize));
+
+	// todo test ERR_OVERFLOW if possible (probably not possible)
+}
+
+/**
+ * Validates output of {@link generate_table}.
+ */
+TEST_F(HuffmanTest, generate_table) {
+	EXPECT_FALSE(true);
 }
