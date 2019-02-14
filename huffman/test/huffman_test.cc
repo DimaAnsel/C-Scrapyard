@@ -1511,6 +1511,20 @@ TEST_F(HuffmanTest, resize_table) {
 }
 
 /**
+ * Validates error handling of {@link add_to_table}.
+ */
+TEST_F(HuffmanTest, add_to_table_errs) {
+	EXPECT_FALSE(true);
+}
+
+/**
+ * Validates output of {@link add_to_table}.
+ */
+TEST_F(HuffmanTest, add_to_table) {
+	EXPECT_FALSE(true);
+}
+
+/**
  * Validates error handling of {@link generate_table}.
  */
 TEST_F(HuffmanTest, generate_table_errs) {

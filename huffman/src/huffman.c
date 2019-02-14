@@ -552,6 +552,81 @@ static HuffmanError resize_table(HuffmanHashTable* table, uint64_t newSize) {
 
 /**
  * @ingroup HuffmanHelpers
+ * Adds a word to the table, or increments if already in table. Also handles
+ * resizing table.
+ *
+ * @see generate_table
+ *
+ * @param[in,out] table    Table to be updated
+ * @param[out]    numWords Number of words in table
+ * @param[in]     word     Word to be added/incremented
+ * @param[in]     maxSize  Maximum size of table
+ *
+ * @return {@link ERR_NO_ERR} if no error occurred.\n
+ *		   {@link ERR_NULL_PTR} if table or numWords are null.\n
+ *         {@link ERR_INSUFFICIENT_SPACE} if unable to allocate
+ *      		sufficient memory for table.\n
+ *         {@link ERR_OVERFLOW} if more than {@link HUFFMAN_MAX_UINT64}
+ *      		of the same word are found.\n
+ *         Other errors as raised by {@link extract_bits}.
+ */
+static HuffmanError add_to_table(HuffmanHashTable* table,
+								 uint64_t* numWords,
+								 uint64_t word,
+								 uint64_t maxSize) {
+	if (table == NULL || table->table == NULL || numWords == NULL) {
+		return ERR_NULL_PTR;
+	}
+
+	HuffmanError err;
+	uint64_t idx;
+	uint64_t *dstVal, *dstId;
+
+	// Find in hash table
+	err = search_table(&idx, table, word, false);
+
+	// Check for full table, resize if necessary
+	if (err == ERR_INSUFFICIENT_SPACE) {
+		if (table->size < maxSize) {
+			// Resize table
+			uint64_t newSize = (table->size * 2 <= maxSize) ? table->size * 2 : maxSize;
+			err = resize_table(table, newSize);
+			if (err) {
+				// Error occurred in resizing
+				return err;
+			}
+
+			// Find in new hash table
+			err = search_table(&idx, table, word, false);
+			if (err) {
+				// Should be unreachable
+				return err;
+			}
+		} else {
+			// Cannot resize table
+			return ERR_INSUFFICIENT_SPACE;
+		}
+	} else if (err != ERR_NO_ERR) {
+		// Should be unreachable
+		return err;
+	}
+
+	// Add to table, check for value overflow
+	dstVal = get_table_value(table->table, idx);
+	dstId = get_table_id(table->table, idx);
+	if (*dstVal == HUFFMAN_MAX_UINT64) {
+		return ERR_OVERFLOW;
+	} else if (*dstVal == 0) {
+		(*numWords)++;
+		*dstId = word;
+	}
+	*dstVal = *dstVal + 1;
+
+	return ERR_NO_ERR;
+}
+
+/**
+ * @ingroup HuffmanHelpers
  * Generates and populates hash table of word frequencies.
  *
  * @warning This allocates a table that must be freed later.
@@ -589,15 +664,24 @@ static HuffmanError generate_table(HuffmanHeader* hdr,
 	HuffmanHashTable table;
 	uint8_t* currPtr = src;
 	uint8_t  currBit = 0;
-	uint8_t* maxPtr = &src[srcSize];
+	uint8_t* maxPtr;
 	uint64_t numWords = 0;
-	uint64_t idx, currWord;
-	uint64_t *dstVal, *dstId;
+	uint64_t currWord;
 	HuffmanError err;
 
-	// todo check validity of size values
+	// Determine how many bits in last word (complicated formula to avoid int overflow)
+	uint8_t finalBits = (uint8_t) ((uint64_t) 8 * (srcSize % (uint64_t) wordSize)
+			% (uint64_t) wordSize);
+	uint8_t padBits = wordSize - finalBits;
 
-	// Max size range 1 to (8 + 8) * 2^59 bytes
+	// Set maximum pointer
+	if (finalBits == 0) {
+		maxPtr = &src[srcSize];
+	} else {
+		maxPtr = &src[srcSize - ((finalBits + 7) / 8)];
+	}
+
+	// Max size range 16 to 16 * 2^59 bytes
 	// NOTE: fails if wordSize = 60 and 2^60 unique words found
 	uint64_t maxSize = (wordSize < 59) ? ((uint64_t)1) << wordSize : ((uint64_t)1) << 59;
 
@@ -611,8 +695,8 @@ static HuffmanError generate_table(HuffmanHeader* hdr,
 	}
 	memset(table.table, 0x0, 2 * sizeof(uint64_t) * table.size);
 
-	// Parse all words in file
-	while ((maxPtr - currPtr) * 8 - currBit > wordSize) {
+	// Parse all complete words in file
+	while (currPtr != maxPtr) {
 		// Get next word
 		err = extract_bits(&currWord, &currPtr, &currBit, wordSize);
 		if (err != ERR_NO_ERR) {
@@ -620,58 +704,67 @@ static HuffmanError generate_table(HuffmanHeader* hdr,
 			return err;
 		}
 
-		// Find in hash table
-		err = search_table(&idx, &table, currWord, false);
+		err = add_to_table(&table, &numWords, currWord, maxSize);
+		if (err) {
+			free(table.table);
+			return err;
+		}
+	}
 
-		// Check for full table, resize if necessary
-		if (err == ERR_INSUFFICIENT_SPACE) {
-			if (table.size < maxSize) {
-				// Resize table
-				uint64_t newSize = (table.size * 2 <= maxSize) ? table.size * 2 : maxSize;
-				err = resize_table(&table, newSize);
-				if (err) {
-					// Error occurred in resizing
-					free(table.table);
-					return err;
-				}
+	// Handle incomplete word & padding
+	if (finalBits != 0) {
+		uint64_t highIdx, lowIdx;
+		uint64_t *highVal, *lowVal;
+		uint64_t *id;
+		uint64_t highWord;
+		bool skipLow = false, skipHigh = false;
 
-				// Find in new hash table
-				err = search_table(&idx, &table, currWord, false);
-				if (err) {
-					// Should be unreachable
-					free(table.table);
-					return err;
-				}
-			} else {
-				// Cannot resize table
-				free(table.table);
-				return ERR_INSUFFICIENT_SPACE;
-			}
-		} else if (err != ERR_NO_ERR) {
-			// Should be unreachable
+		// Get next word
+		err = extract_bits(&currWord, &currPtr, &currBit, finalBits);
+		if (err != ERR_NO_ERR) {
+			free(table.table);
+			return err;
+		}
+		currWord = currWord << padBits;
+
+		// Find index if padding with 0's
+		err = search_table(&lowIdx, &table, currWord, false);
+		if (err) { // Full table & not in table
+			skipLow = true;
+		} else {
+			lowVal = get_table_value(table.table, lowIdx);
+		}
+
+		// Find index if padding with 1's
+		highWord = currWord | (1 << padBits) - 1;
+		err = search_table(&highIdx, &table, highWord, false);
+		if (err) { // Full table & not in table
+			skipHigh = true;
+		} else {
+			highVal = get_table_value(table.table, highIdx);
+		}
+
+		// Choose which padding to use:
+		// * If both possible, choose most common one (or lower in case of tie)
+		// * If one possible, choose that one
+		// * If none possible, choose lower (must resize table)
+		if (skipHigh || *lowVal >= *highVal) {
+			err = add_to_table(&table, &numWords, currWord, maxSize);
+		} else {
+			err = add_to_table(&table, &numWords, highWord, maxSize);
+		}
+
+		// Check for error
+		if (err) {
 			free(table.table);
 			return err;
 		}
 
-		// Add to table, check for value overflow
-		dstVal = get_table_value(table.table, idx);
-		dstId = get_table_id(table.table, idx);
-		if (*dstVal == HUFFMAN_MAX_UINT64) {
-			free(table.table);
-			return ERR_OVERFLOW;
-		} else if (*dstVal == 0) {
-			numWords++;
-		}
-		*dstVal = *dstVal + 1;
-		*dstId = currWord;
 	}
-
-	// todo handle overflow/last word
-
 
 	// Update header
 	hdr->wordSize = wordSize;
-	hdr->padBits = 0; // todo populate with correct value
+	hdr->padBits = padBits;
 	hdr->uniqueWords = numWords;
 	// Copy table metadata
 	dst->table = table.table;
