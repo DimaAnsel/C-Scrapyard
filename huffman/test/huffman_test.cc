@@ -21,7 +21,22 @@
 #define TEST_TABLE_SIZE (uint64_t) 20
 
 /**
- * Test for huffman coding implementation.
+ * Small volume data size in bytes.
+ */
+#define HUFFMAN_TEST_SMALL_VOLUME (uint64_t) (1024)
+
+/**
+ * Medium volume data size in bytes.
+ */
+#define HUFFMAN_TEST_MEDIUM_VOLUME (uint64_t) (1048576)
+
+/**
+ * Large volume data size in bytes.
+ */
+#define HUFFMAN_TEST_LARGE_VOLUME (uint64_t) (1048576 * 20)
+
+/**
+ * Test for Huffman coding implementation.
  */
 class HuffmanTest: public ::testing::Test {
 protected:
@@ -1335,60 +1350,68 @@ TEST_F(HuffmanTest, get_table_id) {
  * Validates error handling of {@link search_table}.
  */
 TEST_F(HuffmanTest, search_table_errs) {
-	uint64_t table[2 * TEST_TABLE_SIZE];
+	uint64_t tableDat[2 * TEST_TABLE_SIZE];
 	uint64_t dst;
+
+	HuffmanHashTable table;
+	table.size = TEST_TABLE_SIZE;
+	table.table = tableDat;
 
 	// Full table
 	for (int i = 0; i < 2 * TEST_TABLE_SIZE; i++) {
-		table[i] = i + 1;
+		table.table[i] = i + 1;
 	}
 	// Case I: entry not in table
-	EXPECT_EQ(ERR_INSUFFICIENT_SPACE, search_table(&dst, table, TEST_TABLE_SIZE, TEST_TABLE_SIZE * 5, false));
+	EXPECT_EQ(ERR_INSUFFICIENT_SPACE, search_table(&dst, &table, TEST_TABLE_SIZE * 5, false));
 	// Case II: entry in table but assuming no match exists
-	EXPECT_EQ(ERR_INSUFFICIENT_SPACE, search_table(&dst, table, TEST_TABLE_SIZE, (uint64_t)3, true));
+	EXPECT_EQ(ERR_INSUFFICIENT_SPACE, search_table(&dst, &table, (uint64_t)3, true));
 }
 
 /**
  * Validates output for {@link search_table}.
  */
 TEST_F(HuffmanTest, search_table) {
-	uint64_t table[2 * TEST_TABLE_SIZE];
+	uint64_t tableDat[2 * TEST_TABLE_SIZE];
 	uint64_t dst;
 	uint64_t* val, *id;
 
+	HuffmanHashTable table;
+	table.size = TEST_TABLE_SIZE;
+	table.table = tableDat;
+
 	// Case I: full table
-	memset(table, 0x00, 2 * TEST_TABLE_SIZE * sizeof(uint64_t));
+	memset(table.table, 0x00, 2 * TEST_TABLE_SIZE * sizeof(uint64_t));
 	for (uint64_t i = 0; i < TEST_TABLE_SIZE; i++) {
-		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, table, TEST_TABLE_SIZE, i * 10 / 3, true));
-		val = get_table_value(table, dst);
+		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, &table, i * 10 / 3, true));
+		val = get_table_value(table.table, dst);
 		*val = i + 1;
-		id = get_table_id(table, dst);
+		id = get_table_id(table.table, dst);
 		*id = i * 10 / 3;
 	}
 	for (uint64_t i = 0; i < TEST_TABLE_SIZE; i++) {
-		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, table, TEST_TABLE_SIZE, i * 10 / 3, false));
-		EXPECT_EQ(i + 1, *get_table_value(table, dst));
-		EXPECT_EQ(i * 10 / 3, *get_table_id(table, dst));
+		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, &table, i * 10 / 3, false));
+		EXPECT_EQ(i + 1, *get_table_value(table.table, dst));
+		EXPECT_EQ(i * 10 / 3, *get_table_id(table.table, dst));
 	}
 
 	// Case II: partially full table
-	memset(table, 0x00, 2 * TEST_TABLE_SIZE * sizeof(uint64_t));
+	memset(table.table, 0x00, 2 * TEST_TABLE_SIZE * sizeof(uint64_t));
 	for (uint64_t i = 0; i < TEST_TABLE_SIZE / 2; i++) {
-		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, table, TEST_TABLE_SIZE, i * 10 / 3 + 3, true));
-		val = get_table_value(table, dst);
+		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, &table, i * 10 / 3 + 3, true));
+		val = get_table_value(table.table, dst);
 		*val = TEST_TABLE_SIZE - i;
-		id = get_table_id(table, dst);
+		id = get_table_id(table.table, dst);
 		*id = i * 10 / 3 + 3;
 	}
 	for (uint64_t i = 0; i < TEST_TABLE_SIZE / 2; i++) {
 		// Occupied
-		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, table, TEST_TABLE_SIZE, i * 10 / 3 + 3, false));
-		EXPECT_EQ(TEST_TABLE_SIZE - i, *get_table_value(table, dst));
-		EXPECT_EQ(i * 10 / 3 + 3, *get_table_id(table, dst));
+		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, &table, i * 10 / 3 + 3, false));
+		EXPECT_EQ(TEST_TABLE_SIZE - i, *get_table_value(table.table, dst));
+		EXPECT_EQ(i * 10 / 3 + 3, *get_table_id(table.table, dst));
 		// Unoccupied
-		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, table, TEST_TABLE_SIZE, i * 10 / 3 + 2, false));
-		EXPECT_EQ(0, *get_table_value(table, dst));
-		EXPECT_EQ(0, *get_table_id(table, dst));
+		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, &table, i * 10 / 3 + 2, false));
+		EXPECT_EQ(0, *get_table_value(table.table, dst));
+		EXPECT_EQ(0, *get_table_id(table.table, dst));
 	}
 }
 
@@ -1396,84 +1419,95 @@ TEST_F(HuffmanTest, search_table) {
  * Validates error handling of {@link resize_table}.
  */
 TEST_F(HuffmanTest, resize_table_errs) {
-	uint64_t* nullTable = NULL;
-	uint64_t table[1];
-	uint64_t* tablePtr = table;
+	uint64_t tableDat[1];
 
-	EXPECT_EQ(ERR_NULL_PTR, resize_table(NULL, TEST_TABLE_SIZE, 2 * TEST_TABLE_SIZE));
-	EXPECT_EQ(ERR_NULL_PTR, resize_table(&nullTable, TEST_TABLE_SIZE, 2 * TEST_TABLE_SIZE));
+	HuffmanHashTable table;
+	table.size = TEST_TABLE_SIZE;
+	table.table = NULL;
 
-	EXPECT_EQ(ERR_INVALID_VALUE, resize_table(&tablePtr, (uint64_t)0, TEST_TABLE_SIZE));
-	EXPECT_EQ(ERR_INVALID_VALUE, resize_table(&tablePtr, TEST_TABLE_SIZE, (uint64_t)0));
-	EXPECT_EQ(ERR_INVALID_VALUE, resize_table(&tablePtr, TEST_TABLE_SIZE, TEST_TABLE_SIZE - 1));
-	EXPECT_EQ(ERR_INVALID_VALUE, resize_table(&tablePtr, TEST_TABLE_SIZE, TEST_TABLE_SIZE));
+	EXPECT_EQ(ERR_NULL_PTR, resize_table(NULL, 2 * TEST_TABLE_SIZE));
+	EXPECT_EQ(ERR_NULL_PTR, resize_table(&table, 2 * TEST_TABLE_SIZE));
+
+	table.table = tableDat;
+	table.size = 0;
+	EXPECT_EQ(ERR_INVALID_VALUE, resize_table(&table, TEST_TABLE_SIZE));
+	table.size = TEST_TABLE_SIZE;
+	EXPECT_EQ(ERR_INVALID_VALUE, resize_table(&table, (uint64_t)0));
+	EXPECT_EQ(ERR_INVALID_VALUE, resize_table(&table, TEST_TABLE_SIZE - 1));
+	EXPECT_EQ(ERR_INVALID_VALUE, resize_table(&table, TEST_TABLE_SIZE));
 }
 
 /**
  * Validates output of {@link resize_table}.
  */
 TEST_F(HuffmanTest, resize_table) {
-	uint64_t* oldTable, *table;
+	uint64_t* oldTable;
 	uint64_t dst;
 	uint64_t* val, *id;
 
+	HuffmanHashTable table;
+
 	// Case I: full table
+	table.size = TEST_TABLE_SIZE;
 	oldTable = (uint64_t*) malloc(2 * TEST_TABLE_SIZE * sizeof(uint64_t));
 	ASSERT_NE((uint64_t*)NULL, oldTable);
-	table = oldTable;
-	memset(table, 0x00, 2 * TEST_TABLE_SIZE * sizeof(uint64_t));
+	table.table = oldTable;
+	memset(table.table, 0x00, 2 * TEST_TABLE_SIZE * sizeof(uint64_t));
 	for (uint64_t i = 0; i < TEST_TABLE_SIZE; i++) {
-		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, table, TEST_TABLE_SIZE, i * 10 / 3, true));
-		val = get_table_value(table, dst);
+		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, &table, i * 10 / 3, true));
+		val = get_table_value(table.table, dst);
 		*val = i + 1;
-		id = get_table_id(table, dst);
+		id = get_table_id(table.table, dst);
 		*id = i * 10 / 3;
 	}
 
-	EXPECT_EQ(ERR_NO_ERR, resize_table(&table, TEST_TABLE_SIZE, TEST_TABLE_SIZE + 3));
-	EXPECT_NE(oldTable, table);
+	EXPECT_EQ(ERR_NO_ERR, resize_table(&table, TEST_TABLE_SIZE + 3));
+	EXPECT_NE(oldTable, table.table);
+	EXPECT_EQ(TEST_TABLE_SIZE + 3, table.size);
 
 	// Validate contents
 	for (uint64_t i = 0; i < TEST_TABLE_SIZE; i++) {
-		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, table, TEST_TABLE_SIZE + 3, i * 10 / 3, false));
-		EXPECT_EQ(i + 1, *get_table_value(table, dst));
-		EXPECT_EQ(i * 10 / 3, *get_table_id(table, dst));
+		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, &table, i * 10 / 3, false));
+		EXPECT_EQ(i + 1, *get_table_value(table.table, dst));
+		EXPECT_EQ(i * 10 / 3, *get_table_id(table.table, dst));
 		// Unoccupied
-		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, table, TEST_TABLE_SIZE + 3, i * 10 / 3 + 1, false));
-		EXPECT_EQ(0, *get_table_value(table, dst));
-		EXPECT_EQ(0, *get_table_id(table, dst));
+		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, &table, i * 10 / 3 + 1, false));
+		EXPECT_EQ(0, *get_table_value(table.table, dst));
+		EXPECT_EQ(0, *get_table_id(table.table, dst));
 	}
-	free(table);
+	free(table.table);
 
 
 	// Case II: partially full table
+	table.size = TEST_TABLE_SIZE;
 	oldTable = (uint64_t*) malloc(2 * TEST_TABLE_SIZE * sizeof(uint64_t));
 	ASSERT_NE((uint64_t*)NULL, oldTable);
-	table = oldTable;
-	memset(table, 0x00, 2 * TEST_TABLE_SIZE * sizeof(uint64_t));
+	table.table = oldTable;
+	memset(table.table, 0x00, 2 * TEST_TABLE_SIZE * sizeof(uint64_t));
 	for (uint64_t i = 0; i < TEST_TABLE_SIZE / 2; i++) {
-		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, table, TEST_TABLE_SIZE, i * 10 / 3 + 3, true));
-		val = get_table_value(table, dst);
+		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, &table, i * 10 / 3 + 3, true));
+		val = get_table_value(table.table, dst);
 		*val = TEST_TABLE_SIZE - i;
-		id = get_table_id(table, dst);
+		id = get_table_id(table.table, dst);
 		*id = i * 10 / 3 + 3;
 	}
 
-	EXPECT_EQ(ERR_NO_ERR, resize_table(&table, TEST_TABLE_SIZE, TEST_TABLE_SIZE + 3));
-	EXPECT_NE(oldTable, table);
+	EXPECT_EQ(ERR_NO_ERR, resize_table(&table, TEST_TABLE_SIZE + 3));
+	EXPECT_NE(oldTable, table.table);
+	EXPECT_EQ(TEST_TABLE_SIZE + 3, table.size);
 
 	// Validate contents
 	for (uint64_t i = 0; i < TEST_TABLE_SIZE / 2; i++) {
 		// Occupied
-		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, table, TEST_TABLE_SIZE + 3, i * 10 / 3 + 3, false));
-		EXPECT_EQ(TEST_TABLE_SIZE - i, *get_table_value(table, dst));
-		EXPECT_EQ(i * 10 / 3 + 3, *get_table_id(table, dst));
+		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, &table, i * 10 / 3 + 3, false));
+		EXPECT_EQ(TEST_TABLE_SIZE - i, *get_table_value(table.table, dst));
+		EXPECT_EQ(i * 10 / 3 + 3, *get_table_id(table.table, dst));
 		// Unoccupied
-		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, table, TEST_TABLE_SIZE + 3, i * 10 / 3 + 2, false));
-		EXPECT_EQ(0, *get_table_value(table, dst));
-		EXPECT_EQ(0, *get_table_id(table, dst));
+		EXPECT_EQ(ERR_NO_ERR, search_table(&dst, &table, i * 10 / 3 + 2, false));
+		EXPECT_EQ(0, *get_table_value(table.table, dst));
+		EXPECT_EQ(0, *get_table_id(table.table, dst));
 	}
-	free(table);
+	free(table.table);
 }
 
 /**
@@ -1481,7 +1515,7 @@ TEST_F(HuffmanTest, resize_table) {
  */
 TEST_F(HuffmanTest, generate_table_errs) {
 	HuffmanHeader header;
-	uint64_t* table = NULL;
+	HuffmanHashTable table;
 	uint8_t srcDummy[1];
 	uint8_t* src;
 	uint64_t srcSize;
@@ -1511,5 +1545,160 @@ TEST_F(HuffmanTest, generate_table_errs) {
  * Validates output of {@link generate_table}.
  */
 TEST_F(HuffmanTest, generate_table) {
-	EXPECT_FALSE(true);
+	HuffmanHeader header;
+	HuffmanHashTable table;
+	uint8_t* src;
+	uint64_t srcSize;
+	uint8_t wordSize;
+	uint64_t i, dstIdx;
+
+	// Test 0: word size 2, small volume, no padding
+	srcSize = HUFFMAN_TEST_SMALL_VOLUME;
+	wordSize = 2;
+	table.table = NULL;
+	src = (uint8_t*) malloc(srcSize + 1);
+	ASSERT_NE((uint8_t*)NULL, src);
+	for (i = 0; i < srcSize; i++) {
+		src[i] = 0x1B; // [0, 1, 2, 3]
+	}
+	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
+	ASSERT_NE((uint64_t*)NULL, table.table);
+	for (i = 0; i < 4; i++) {
+		EXPECT_EQ(ERR_NO_ERR, search_table(&dstIdx, &table, i, false));
+		EXPECT_EQ(srcSize, *get_table_value(table.table, dstIdx));
+	}
+	free(src);
+	free(table.table);
+
+//	// Test 1: word size 2, large volume
+//	srcSize = HUFFMAN_TEST_LARGE_VOLUME;
+//	wordSize = 2;
+//	src = (uint8_t*) malloc(srcSize + 1);
+//	ASSERT_NE((uint8_t*)NULL, src);
+//	for (i = 0; i < srcSize; i++) {
+//		src[i] = 0x0;
+//	}
+//	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
+//	free(src);
+//
+//	// Test 2: word size 24, medium volume
+//	srcSize = HUFFMAN_TEST_MEDIUM_VOLUME;
+//	wordSize = 24;
+//	src = (uint8_t*) malloc(srcSize + 1);
+//	ASSERT_NE((uint8_t*)NULL, src);
+//	for (i = 0; i < srcSize; i++) {
+//		src[i] = 0x0;
+//	}
+//	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
+//	free(src);
+//
+//	// Test 3: word size 32, medium volume
+//	srcSize = HUFFMAN_TEST_MEDIUM_VOLUME;
+//	wordSize = 32;
+//	src = (uint8_t*) malloc(srcSize + 1);
+//	ASSERT_NE((uint8_t*)NULL, src);
+//	for (i = 0; i < srcSize; i++) {
+//		src[i] = 0x0;
+//	}
+//	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
+//	free(src);
+//
+//	// Test 4: word size 3, large volume, padding
+//	srcSize = HUFFMAN_TEST_LARGE_VOLUME;
+//	wordSize = 3;
+//	src = (uint8_t*) malloc(srcSize + 1);
+//	ASSERT_NE((uint8_t*)NULL, src);
+//	for (i = 0; i < srcSize; i++) {
+//		src[i] = 0x0;
+//	}
+//	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
+//	free(src);
+//
+//	// Test 5: word size 8 + 5 = 13, medium volume, padding
+//	srcSize = HUFFMAN_TEST_MEDIUM_VOLUME;
+//	wordSize = 13;
+//	src = (uint8_t*) malloc(srcSize + 1);
+//	ASSERT_NE((uint8_t*)NULL, src);
+//	for (i = 0; i < srcSize; i++) {
+//		src[i] = 0x0;
+//	}
+//	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
+//	free(src);
+//
+//	// Test 6: word size 16 + 7 = 23, medium volume, padding
+//	srcSize = HUFFMAN_TEST_MEDIUM_VOLUME;
+//	wordSize = 23;
+//	src = (uint8_t*) malloc(srcSize + 1);
+//	ASSERT_NE((uint8_t*)NULL, src);
+//	for (i = 0; i < srcSize; i++) {
+//		src[i] = 0x0;
+//	}
+//	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
+//	free(src);
+//
+//	// Test 7: word size 24 + 6 = 30, small volume, no padding
+//	srcSize = HUFFMAN_TEST_SMALL_VOLUME;
+//	wordSize = 30;
+//	src = (uint8_t*) malloc(srcSize + 1);
+//	ASSERT_NE((uint8_t*)NULL, src);
+//	for (i = 0; i < srcSize; i++) {
+//		src[i] = 0x0;
+//	}
+//	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
+//	free(src);
+//
+//	// Test 8: word size 32 + 4 = 36, small volume, padding
+//	srcSize = HUFFMAN_TEST_SMALL_VOLUME;
+//	wordSize = 36;
+//	src = (uint8_t*) malloc(srcSize + 1);
+//	ASSERT_NE((uint8_t*)NULL, src);
+//	for (i = 0; i < srcSize; i++) {
+//		src[i] = 0x0;
+//	}
+//	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
+//	free(src);
+//
+//	// Test 9: word size 48, medium volume, padding
+//	srcSize = HUFFMAN_TEST_MEDIUM_VOLUME;
+//	wordSize = 48;
+//	src = (uint8_t*) malloc(srcSize + 1);
+//	ASSERT_NE((uint8_t*)NULL, src);
+//	for (i = 0; i < srcSize; i++) {
+//		src[i] = 0x0;
+//	}
+//	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
+//	free(src);
+//
+//	// Test 10: word size 56 + 3 = 59, small volume, no padding
+//	srcSize = HUFFMAN_TEST_SMALL_VOLUME;
+//	wordSize = 59;
+//	src = (uint8_t*) malloc(srcSize + 1);
+//	ASSERT_NE((uint8_t*)NULL, src);
+//	for (i = 0; i < srcSize; i++) {
+//		src[i] = 0x0;
+//	}
+//	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
+//	free(src);
+//
+//	// Test 11: word size 16 + 1, large volume, padding
+//	srcSize = HUFFMAN_TEST_LARGE_VOLUME;
+//	wordSize = 17;
+//	src = (uint8_t*) malloc(srcSize + 1);
+//	ASSERT_NE((uint8_t*)NULL, src);
+//	for (i = 0; i < srcSize; i++) {
+//		src[i] = 0x0;
+//	}
+//	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
+//	free(src);
+//
+//	// Test 12: word size 60, large volume, padding
+//	srcSize = HUFFMAN_TEST_LARGE_VOLUME;
+//	wordSize = HUFFMAN_MAX_WORD_SIZE;
+//	src = (uint8_t*) malloc(srcSize + 1);
+//	ASSERT_NE((uint8_t*)NULL, src);
+//	for (i = 0; i < srcSize; i++) {
+//		src[i] = 0x0;
+//	}
+//	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
+//	free(src);
 }

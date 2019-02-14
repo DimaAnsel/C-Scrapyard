@@ -435,28 +435,31 @@ static inline uint64_t get_hash(uint64_t val,
  *
  * @param[out] dstIdx        Matching or unoccupied index.
  * @param[in]  table         Table to be searched.
- * @param[in]  tableSize     Number of entries in table.
  * @param[in]  searchId      Desired id.
  * @param[in]  assumeNoMatch If true, algorithm assumes table does not contain
  *							 matching id (for example, when resizing table).
  *
  * @return {@link ERR_NO_ERR} if no error occurred.\n
+ *		   {@link ERR_NULL_PTR} if dstIdx or table are null.
  *		   {@link ERR_INSUFFICIENT_SPACE} if table is full and no entry with
  *				matching value was found. Indicates a larger table is needed.
  */
 static HuffmanError search_table(uint64_t* dstIdx,
-								 uint64_t* table,
-								 uint64_t tableSize,
+								 HuffmanHashTable* table,
 								 uint64_t searchId,
 								 bool assumeNoMatch) {
+	if (dstIdx == NULL || table == NULL || table->table == NULL) {
+		return ERR_NULL_PTR;
+	}
+
 	uint64_t* id, *val;
-	uint64_t curr = get_hash(searchId, tableSize);
-	uint64_t last = (curr + (tableSize - 1)) % tableSize;
+	uint64_t curr = get_hash(searchId, table->size);
+	uint64_t last = (curr + (table->size - 1)) % table->size;
 
 	// todo analyze hash & step function performance
 	while (curr != last) {
 		// Check for empty
-		val = get_table_value(table, curr);
+		val = get_table_value(table->table, curr);
 		if (*val == 0) {
 			*dstIdx = curr;
 			return ERR_NO_ERR;
@@ -464,7 +467,7 @@ static HuffmanError search_table(uint64_t* dstIdx,
 
 		// Check for identical id
 		if (!assumeNoMatch) { // todo measure effect of skipping this step during resize
-			id = get_table_id(table, curr);
+			id = get_table_id(table->table, curr);
 			if (*id == searchId) {
 				*dstIdx = curr;
 				return ERR_NO_ERR;
@@ -472,7 +475,7 @@ static HuffmanError search_table(uint64_t* dstIdx,
 		}
 
 		// Not found, move to next index
-		curr = (curr + 1) % tableSize; // todo consider different step functions
+		curr = (curr + 1) % table->size; // todo consider different step functions
 	}
 	// Table full and id not found
 	return ERR_INSUFFICIENT_SPACE;
@@ -484,9 +487,8 @@ static HuffmanError search_table(uint64_t* dstIdx,
  *
  * @warning Must be able to allocate new table prior to releasing existing table.
  *
- * @param[in,out] table     Table to be resized. Updated to location of new table
- *							upon successful resize.
- * @param[in]     tableSize Maximum number of entries in existing table.
+ * @param[in,out] table     Table to be resized. Updated with new table
+ *							pointer & size if successful.
  * @param[in]     newSize   Maximum number of entries in resized table.
  *
  * @return {@link ERR_NO_ERR} if no error occurred.\n
@@ -495,45 +497,47 @@ static HuffmanError search_table(uint64_t* dstIdx,
  *				than existing table size.
  *		   {@link ERR_INSUFFICIENT_SPACE} if unable to allocate new table.
  */
-static HuffmanError resize_table(uint64_t** table, uint64_t tableSize, uint64_t newSize) {
-	if (table == NULL || *table == NULL) {
+static HuffmanError resize_table(HuffmanHashTable* table, uint64_t newSize) {
+	if (table == NULL || table->table == NULL) {
 		return ERR_NULL_PTR;
 	}
 
-	if (tableSize == 0 || newSize == 0 || newSize <= tableSize) {
+	if (table->size == 0 || newSize == 0 || newSize <= table->size) {
 		return ERR_INVALID_VALUE;
 	}
 
 	// Init pointers and allocate
-	uint64_t* oldTable = *table;
-	uint64_t* newTable = (uint64_t*) malloc(2 * sizeof(uint64_t) * newSize);
-	if (!newTable) {
+	uint64_t* oldTable = table->table;
+	HuffmanHashTable newTable;
+	newTable.size = newSize;
+	newTable.table = (uint64_t*) malloc(2 * sizeof(uint64_t) * newSize);
+	if (!newTable.table) {
 		return ERR_INSUFFICIENT_SPACE;
 	}
-	memset(newTable, 0x00, 2 * sizeof(uint64_t) * newSize);
+	memset(newTable.table, 0x00, 2 * sizeof(uint64_t) * newTable.size);
 
 	uint64_t currIdx, dstIdx;
 	uint64_t val, id;
 	uint64_t *dstVal, *dstId;
 	HuffmanError err;
 
-	for (currIdx = 0; currIdx < tableSize; currIdx++) {
+	for (currIdx = 0; currIdx < table->size; currIdx++) {
 		val = *get_table_value(oldTable, currIdx);
 
 		// Entry found
 		if (val) {
 			id = *get_table_id(oldTable, currIdx);
 
-			err = search_table(&dstIdx, newTable, newSize, id, true);
+			err = search_table(&dstIdx, &newTable, id, true);
 			if (err) {
 				// Should be unreachable
-				free(newTable);
+				free(newTable.table);
 				return err;
 			}
 
 			// Copy entry
-			dstVal = get_table_value(newTable, dstIdx);
-			dstId  = get_table_id(newTable, dstIdx);
+			dstVal = get_table_value(newTable.table, dstIdx);
+			dstId  = get_table_id(newTable.table, dstIdx);
 			*dstVal = val;
 			*dstId = id;
 		}
@@ -541,7 +545,8 @@ static HuffmanError resize_table(uint64_t** table, uint64_t tableSize, uint64_t 
 
 	// Release and migrate pointer
 	free(oldTable);
-	*table = newTable;
+	table->table = newTable.table;
+	table->size = newTable.size;
 	return ERR_NO_ERR;
 }
 
@@ -552,7 +557,7 @@ static HuffmanError resize_table(uint64_t** table, uint64_t tableSize, uint64_t 
  * @warning This allocates a table that must be freed later.
  *
  * @param[out] hdr      Header populated with metadata.
- * @param[out] dst      Pointer to allocated table. Must be freed by calling function.
+ * @param[out] dst      Pointer to table. Table data must be freed by calling function.
  * @param[in]  src      Data to be converted.
  * @param[in]  srcSize  Size of data in bytes.
  * @param[in]  wordSize Word size used for compression.
@@ -567,7 +572,7 @@ static HuffmanError resize_table(uint64_t** table, uint64_t tableSize, uint64_t 
  *         Other errors as raised by {@link extract_bits}.
  */
 static HuffmanError generate_table(HuffmanHeader* hdr,
-								   uint64_t** dst,
+								   HuffmanHashTable* dst,
 								   uint8_t* src,
 								   uint64_t srcSize,
 								   uint8_t wordSize) {
@@ -581,7 +586,7 @@ static HuffmanError generate_table(HuffmanHeader* hdr,
 		return ERR_INVALID_VALUE;
 	}
 
-
+	HuffmanHashTable table;
 	uint8_t* currPtr = src;
 	uint8_t  currBit = 0;
 	uint8_t* maxPtr = &src[srcSize];
@@ -597,63 +602,62 @@ static HuffmanError generate_table(HuffmanHeader* hdr,
 	uint64_t maxSize = (wordSize < 59) ? ((uint64_t)1) << wordSize : ((uint64_t)1) << 59;
 
 	// Table initially 1/256th to all of max size, depending on word size
-	uint64_t tableSize = 1 << (wordSize - wordSize / 4);
+	table.size = 1 << (wordSize - wordSize / 4);
 
 	// Initialize table
-	uint64_t* table = (uint64_t*) malloc(2 * sizeof(uint64_t) * tableSize);
-	if (!table) {
+	table.table = (uint64_t*) malloc(2 * sizeof(uint64_t) * table.size);
+	if (!table.table) {
 		return ERR_INSUFFICIENT_SPACE;
 	}
-	memset(table, 0x0, 2 * sizeof(uint64_t) * tableSize);
+	memset(table.table, 0x0, 2 * sizeof(uint64_t) * table.size);
 
 	// Parse all words in file
 	while ((maxPtr - currPtr) * 8 - currBit > wordSize) {
 		// Get next word
 		err = extract_bits(&currWord, &currPtr, &currBit, wordSize);
 		if (err != ERR_NO_ERR) {
-			free(table);
+			free(table.table);
 			return err;
 		}
 
 		// Find in hash table
-		err = search_table(&idx, table, tableSize, currWord, false);
+		err = search_table(&idx, &table, currWord, false);
 
 		// Check for full table, resize if necessary
 		if (err == ERR_INSUFFICIENT_SPACE) {
-			if (tableSize < maxSize) {
+			if (table.size < maxSize) {
 				// Resize table
-				uint64_t newSize = (tableSize * 2 <= maxSize) ? tableSize * 2 : maxSize;
-				err = resize_table(&table, tableSize, newSize);
+				uint64_t newSize = (table.size * 2 <= maxSize) ? table.size * 2 : maxSize;
+				err = resize_table(&table, newSize);
 				if (err) {
 					// Error occurred in resizing
-					free(table);
+					free(table.table);
 					return err;
 				}
-				tableSize = newSize;
 
 				// Find in new hash table
-				err = search_table(&idx, table, tableSize, currWord, false);
+				err = search_table(&idx, &table, currWord, false);
 				if (err) {
 					// Should be unreachable
-					free(table);
+					free(table.table);
 					return err;
 				}
 			} else {
 				// Cannot resize table
-				free(table);
+				free(table.table);
 				return ERR_INSUFFICIENT_SPACE;
 			}
 		} else if (err != ERR_NO_ERR) {
 			// Should be unreachable
-			free(table);
+			free(table.table);
 			return err;
 		}
 
 		// Add to table, check for value overflow
-		dstVal = get_table_value(table, idx);
-		dstId = get_table_id(table, idx);
+		dstVal = get_table_value(table.table, idx);
+		dstId = get_table_id(table.table, idx);
 		if (*dstVal == HUFFMAN_MAX_UINT64) {
-			free(table);
+			free(table.table);
 			return ERR_OVERFLOW;
 		} else if (*dstVal == 0) {
 			numWords++;
@@ -665,11 +669,13 @@ static HuffmanError generate_table(HuffmanHeader* hdr,
 	// todo handle overflow/last word
 
 
-	// Update structures
+	// Update header
 	hdr->wordSize = wordSize;
 	hdr->padBits = 0; // todo populate with correct value
 	hdr->uniqueWords = numWords;
-	*dst = table;
+	// Copy table metadata
+	dst->table = table.table;
+	dst->size = table.size;
 
 	return ERR_NO_ERR;
 }

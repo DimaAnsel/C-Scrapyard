@@ -99,6 +99,17 @@ typedef struct HuffmanHeader_struct {
 	uint64_t uniqueWords;
 } HuffmanHeader;
 
+typedef struct HuffmanHashTable_struct {
+	/**
+	 * Maximum capacity of this table.
+	 */
+	uint64_t size;
+	/**
+	 * Pointer to table.
+	 */
+	uint64_t* table;
+} HuffmanHashTable;
+
 /**
  * Standard interface to get size of value in bits for index
  * using a given mapping.
