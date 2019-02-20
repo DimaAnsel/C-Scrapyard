@@ -1673,19 +1673,18 @@ TEST_F(HuffmanTest, generate_table_errs) {
 	srcSize = 0;
 	EXPECT_EQ(ERR_INVALID_VALUE, generate_table(&header, &table, srcDummy, srcSize, wordSize));
 
-	// todo test ERR_OVERFLOW if possible (probably not possible)
+	// Cannot test overflow on most architectures due to space restrictions
 }
 
 /**
- * Validates output of {@link generate_table}.
+ * Validates output of {@link generate_table} with even-ended word sizes (no padding).
  */
-TEST_F(HuffmanTest, generate_table) {
+TEST_F(HuffmanTest, generate_table_evens) {
 	HuffmanHeader header;
 	HuffmanHashTable table;
-	uint8_t* src;
-	uint64_t srcSize;
-	uint8_t wordSize;
-	uint64_t i, dstIdx;
+	uint8_t* src, *temp;
+	uint8_t wordSize, bit;
+	uint64_t i, j, val, dstIdx, srcSize, size;
 
 	// Test 0: word size 2, small volume, no padding
 	srcSize = HUFFMAN_TEST_SMALL_VOLUME;
@@ -1705,18 +1704,45 @@ TEST_F(HuffmanTest, generate_table) {
 	free(src);
 	free(table.table);
 
-//	// Test 1: word size 2, large volume
-//	srcSize = HUFFMAN_TEST_LARGE_VOLUME;
-//	wordSize = 2;
-//	src = (uint8_t*) malloc(srcSize + 1);
-//	ASSERT_NE((uint8_t*)NULL, src);
-//	for (i = 0; i < srcSize; i++) {
-//		src[i] = 0x0;
-//	}
-//	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
-//	free(src);
-//
-//	// Test 2: word size 24, medium volume
+	// Test 1: word size 2, large volume
+	srcSize = HUFFMAN_TEST_LARGE_VOLUME;
+	wordSize = 2;
+	src = (uint8_t*) malloc(srcSize + 1);
+	ASSERT_NE((uint8_t*)NULL, src);
+	temp = src;
+	bit = 0;
+	size = srcSize;
+	val = 0x0;
+	for (i = 0; i < srcSize * 2; i++) {
+		put_bits(&temp, &bit, &size, val, wordSize);
+	}
+	val = 0x1;
+	for (i = 0; i < srcSize; i++) {
+		put_bits(&temp, &bit, &size, val, wordSize);
+	}
+	val = 0x2;
+	for (i = 0; i < srcSize * 2 / 3; i++) {
+		put_bits(&temp, &bit, &size, val, wordSize);
+	}
+	val = 0x3;
+	for (; i < srcSize; i++) {
+		put_bits(&temp, &bit, &size, val, wordSize);
+	}
+	EXPECT_EQ(0, size);
+	EXPECT_EQ(0, bit);
+	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
+	EXPECT_EQ(4, header.uniqueWords);
+	EXPECT_EQ(ERR_NO_ERR, search_table(&dstIdx, &table, 0x0, false));
+	EXPECT_EQ(srcSize * 2, *get_table_value(table.table, dstIdx));
+	EXPECT_EQ(ERR_NO_ERR, search_table(&dstIdx, &table, 0x1, false));
+	EXPECT_EQ(srcSize, *get_table_value(table.table, dstIdx));
+	EXPECT_EQ(ERR_NO_ERR, search_table(&dstIdx, &table, 0x2, false));
+	EXPECT_EQ(srcSize * 2 / 3, *get_table_value(table.table, dstIdx));
+	EXPECT_EQ(ERR_NO_ERR, search_table(&dstIdx, &table, 0x3, false));
+	EXPECT_EQ(srcSize - (srcSize * 2 / 3), *get_table_value(table.table, dstIdx));
+	free(src);
+
+	// Test 2: word size 24, medium volume
 //	srcSize = HUFFMAN_TEST_MEDIUM_VOLUME;
 //	wordSize = 24;
 //	src = (uint8_t*) malloc(srcSize + 1);
@@ -1726,8 +1752,8 @@ TEST_F(HuffmanTest, generate_table) {
 //	}
 //	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
 //	free(src);
-//
-//	// Test 3: word size 32, medium volume
+
+	// Test 3: word size 32, medium volume
 //	srcSize = HUFFMAN_TEST_MEDIUM_VOLUME;
 //	wordSize = 32;
 //	src = (uint8_t*) malloc(srcSize + 1);
@@ -1737,41 +1763,8 @@ TEST_F(HuffmanTest, generate_table) {
 //	}
 //	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
 //	free(src);
-//
-//	// Test 4: word size 3, large volume, padding
-//	srcSize = HUFFMAN_TEST_LARGE_VOLUME;
-//	wordSize = 3;
-//	src = (uint8_t*) malloc(srcSize + 1);
-//	ASSERT_NE((uint8_t*)NULL, src);
-//	for (i = 0; i < srcSize; i++) {
-//		src[i] = 0x0;
-//	}
-//	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
-//	free(src);
-//
-//	// Test 5: word size 8 + 5 = 13, medium volume, padding
-//	srcSize = HUFFMAN_TEST_MEDIUM_VOLUME;
-//	wordSize = 13;
-//	src = (uint8_t*) malloc(srcSize + 1);
-//	ASSERT_NE((uint8_t*)NULL, src);
-//	for (i = 0; i < srcSize; i++) {
-//		src[i] = 0x0;
-//	}
-//	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
-//	free(src);
-//
-//	// Test 6: word size 16 + 7 = 23, medium volume, padding
-//	srcSize = HUFFMAN_TEST_MEDIUM_VOLUME;
-//	wordSize = 23;
-//	src = (uint8_t*) malloc(srcSize + 1);
-//	ASSERT_NE((uint8_t*)NULL, src);
-//	for (i = 0; i < srcSize; i++) {
-//		src[i] = 0x0;
-//	}
-//	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
-//	free(src);
-//
-//	// Test 7: word size 24 + 6 = 30, small volume, no padding
+
+	// Test 7: word size 24 + 6 = 30, small volume, no padding
 //	srcSize = HUFFMAN_TEST_SMALL_VOLUME;
 //	wordSize = 30;
 //	src = (uint8_t*) malloc(srcSize + 1);
@@ -1781,30 +1774,8 @@ TEST_F(HuffmanTest, generate_table) {
 //	}
 //	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
 //	free(src);
-//
-//	// Test 8: word size 32 + 4 = 36, small volume, padding
-//	srcSize = HUFFMAN_TEST_SMALL_VOLUME;
-//	wordSize = 36;
-//	src = (uint8_t*) malloc(srcSize + 1);
-//	ASSERT_NE((uint8_t*)NULL, src);
-//	for (i = 0; i < srcSize; i++) {
-//		src[i] = 0x0;
-//	}
-//	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
-//	free(src);
-//
-//	// Test 9: word size 48, medium volume, padding
-//	srcSize = HUFFMAN_TEST_MEDIUM_VOLUME;
-//	wordSize = 48;
-//	src = (uint8_t*) malloc(srcSize + 1);
-//	ASSERT_NE((uint8_t*)NULL, src);
-//	for (i = 0; i < srcSize; i++) {
-//		src[i] = 0x0;
-//	}
-//	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
-//	free(src);
-//
-//	// Test 10: word size 56 + 3 = 59, small volume, no padding
+
+	// Test 10: word size 56 + 3 = 59, small volume, no padding
 //	srcSize = HUFFMAN_TEST_SMALL_VOLUME;
 //	wordSize = 59;
 //	src = (uint8_t*) malloc(srcSize + 1);
@@ -1814,8 +1785,98 @@ TEST_F(HuffmanTest, generate_table) {
 //	}
 //	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
 //	free(src);
-//
-//	// Test 11: word size 16 + 1, large volume, padding
+}
+
+/**
+ * Validates output of {@link generate_table} with odd-ended word sizes (use padding).
+ */
+TEST_F(HuffmanTest, generate_table_odds) {
+	HuffmanHeader header;
+	HuffmanHashTable table;
+	uint8_t* src, *temp;
+	uint8_t wordSize, bit;
+	uint64_t i, j, val, dstIdx, srcSize, size;
+	HuffmanError err;
+
+	// Test 4: word size 3, large volume, padding
+	srcSize = HUFFMAN_TEST_LARGE_VOLUME;
+	wordSize = 3;
+	src = (uint8_t*) malloc(srcSize + 1);
+	ASSERT_NE((uint8_t*)NULL, src);
+	temp = src;
+	bit = 0;
+	val = 0x0;
+	size = srcSize;
+	src[srcSize - 1] = 0x0;
+	for (j = 0; j < 8; j++) {
+		for (i = 0; i < HUFFMAN_TEST_LARGE_VOLUME / 3; i++) {
+			EXPECT_EQ(ERR_NO_ERR, put_bits(&temp, &bit, &size, j, wordSize));
+		}
+	}
+	for (i = 0; i < 5; i++) {
+		EXPECT_EQ(ERR_NO_ERR, put_bits(&temp, &bit, &size, i, wordSize));
+	}
+	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
+	EXPECT_EQ(wordSize, header.wordSize);
+	EXPECT_EQ(wordSize - (8 - bit), header.padBits);
+	EXPECT_EQ(8, header.uniqueWords);
+	EXPECT_EQ(ERR_NO_ERR, search_table(&dstIdx, &table, 0x0, false));
+	EXPECT_EQ(HUFFMAN_TEST_LARGE_VOLUME / 3 + 2, *get_table_value(table.table, dstIdx));
+	for (i = 1; i < 5; i++) {
+		EXPECT_EQ(ERR_NO_ERR, search_table(&dstIdx, &table, i, false));
+		EXPECT_EQ(HUFFMAN_TEST_LARGE_VOLUME / 3 + 1, *get_table_value(table.table, dstIdx));
+	}
+	for (; i < 8; i++) {
+		EXPECT_EQ(ERR_NO_ERR, search_table(&dstIdx, &table, i, false));
+		EXPECT_EQ(HUFFMAN_TEST_LARGE_VOLUME / 3, *get_table_value(table.table, dstIdx));
+	}
+	free(src);
+
+	// Test 5: word size 8 + 5 = 13, medium volume, padding
+//	srcSize = HUFFMAN_TEST_MEDIUM_VOLUME;
+//	wordSize = 13;
+//	src = (uint8_t*) malloc(srcSize + 1);
+//	ASSERT_NE((uint8_t*)NULL, src);
+//	for (i = 0; i < srcSize; i++) {
+//		src[i] = 0x0;
+//	}
+//	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
+//	free(src);
+
+	// Test 6: word size 16 + 7 = 23, medium volume, padding
+//	srcSize = HUFFMAN_TEST_MEDIUM_VOLUME;
+//	wordSize = 23;
+//	src = (uint8_t*) malloc(srcSize + 1);
+//	ASSERT_NE((uint8_t*)NULL, src);
+//	for (i = 0; i < srcSize; i++) {
+//		src[i] = 0x0;
+//	}
+//	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
+//	free(src);
+
+	// Test 8: word size 32 + 4 = 36, small volume, padding
+//	srcSize = HUFFMAN_TEST_SMALL_VOLUME;
+//	wordSize = 36;
+//	src = (uint8_t*) malloc(srcSize + 1);
+//	ASSERT_NE((uint8_t*)NULL, src);
+//	for (i = 0; i < srcSize; i++) {
+//		src[i] = 0x0;
+//	}
+//	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
+//	free(src);
+
+	// Test 9: word size 48, medium volume, padding
+//	srcSize = HUFFMAN_TEST_MEDIUM_VOLUME;
+//	wordSize = 48;
+//	src = (uint8_t*) malloc(srcSize + 1);
+//	ASSERT_NE((uint8_t*)NULL, src);
+//	for (i = 0; i < srcSize; i++) {
+//		src[i] = 0x0;
+//	}
+//	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
+//	free(src);
+
+	// Test 11: word size 16 + 1, large volume, padding
 //	srcSize = HUFFMAN_TEST_LARGE_VOLUME;
 //	wordSize = 17;
 //	src = (uint8_t*) malloc(srcSize + 1);
@@ -1825,8 +1886,8 @@ TEST_F(HuffmanTest, generate_table) {
 //	}
 //	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
 //	free(src);
-//
-//	// Test 12: word size 60, large volume, padding
+
+	// Test 12: word size 60, large volume, padding
 //	srcSize = HUFFMAN_TEST_LARGE_VOLUME;
 //	wordSize = HUFFMAN_MAX_WORD_SIZE;
 //	src = (uint8_t*) malloc(srcSize + 1);
