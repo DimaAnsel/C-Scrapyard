@@ -1685,6 +1685,7 @@ TEST_F(HuffmanTest, generate_table_evens) {
 	uint8_t* src, *temp;
 	uint8_t wordSize, bit;
 	uint64_t i, j, val, dstIdx, srcSize, size;
+	size_t cut1, cut2;
 
 	// Test 0: word size 2, small volume, no padding
 	srcSize = HUFFMAN_TEST_SMALL_VOLUME;
@@ -1743,15 +1744,31 @@ TEST_F(HuffmanTest, generate_table_evens) {
 	free(src);
 
 	// Test 2: word size 24, medium volume
-//	srcSize = HUFFMAN_TEST_MEDIUM_VOLUME;
-//	wordSize = 24;
-//	src = (uint8_t*) malloc(srcSize + 1);
-//	ASSERT_NE((uint8_t*)NULL, src);
-//	for (i = 0; i < srcSize; i++) {
-//		src[i] = 0x0;
-//	}
-//	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
-//	free(src);
+	srcSize = HUFFMAN_TEST_MEDIUM_VOLUME;
+	wordSize = 24;
+	src = (uint8_t*) malloc(srcSize + 1);
+	ASSERT_NE((uint8_t*)NULL, src);
+	temp = src;
+	bit = 0;
+	size = srcSize;
+	cut1 = (HUFFMAN_TEST_MEDIUM_VOLUME / 3 / 16) * 3;
+	cut2 = cut1 + (HUFFMAN_TEST_MEDIUM_VOLUME / 3 / 32) * 3;
+	memset(src, 0xEE, cut1);
+	memset(&src[cut1], 0xFF, cut2 - cut1);
+	temp = &src[cut2];
+	size = srcSize - cut2;
+	val = 0x0;
+	for (i = 0; i < (srcSize - cut2) / 3; i++) {
+		EXPECT_EQ(ERR_NO_ERR, put_bits(&temp, &bit, &size, val, wordSize));
+		val = (val + 1) % ((uint64_t) 1 << 16);
+	}
+	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
+	EXPECT_EQ(((uint64_t) 1 << 16) + 2, header.uniqueWords);
+	EXPECT_EQ(ERR_NO_ERR, search_table(&dstIdx, &table, 0xEEEEEE, false));
+	EXPECT_EQ((uint64_t) cut1 / 3, *get_table_value(table.table, dstIdx));
+	EXPECT_EQ(ERR_NO_ERR, search_table(&dstIdx, &table, 0xFFFFFF, false));
+	EXPECT_EQ((uint64_t) (cut2 - cut1) / 3, *get_table_value(table.table, dstIdx));
+	free(src);
 
 	// Test 3: word size 32, medium volume
 //	srcSize = HUFFMAN_TEST_MEDIUM_VOLUME;

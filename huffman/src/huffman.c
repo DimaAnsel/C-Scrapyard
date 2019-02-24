@@ -703,7 +703,7 @@ static HuffmanError generate_table(HuffmanHeader* hdr,
 	memset(table.table, 0x0, 2 * sizeof(uint64_t) * table.size);
 
 	// Parse all complete words in file
-	while (currPtr != maxPtr || (finalBits > 0 && currBit != (8 - finalBits))) {
+	while (currPtr != maxPtr || (finalBits > 0 && currBit != (64 - finalBits) % 8)) {
 		// Get next word
 		err = extract_bits(&currWord, &currPtr, &currBit, wordSize);
 		if (err != ERR_NO_ERR) {
