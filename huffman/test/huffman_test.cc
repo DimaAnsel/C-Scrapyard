@@ -36,6 +36,29 @@
 #define HUFFMAN_TEST_LARGE_VOLUME (uint64_t) (1048576 * 20)
 
 /**
+ * Tests if table is sorted in descending order.
+ *
+ * @param[in] table Pointer to table to be tested
+ * @param[in] size  Length of table to be tested
+ */
+static bool is_sorted_descending(uint64_t* table, uint64_t size) {
+	uint64_t i, prev, val;
+	if (size <= 1) {
+		return true;
+	}
+	prev = *get_table_value(table, 0);
+	for (i = 1; i < size; i++) {
+		val = *get_table_value(table, i);
+		if (prev < val) {
+			printf("Fail at %lu (%u < %u)\n", i, log2_ceil_u64(prev), log2_ceil_u64(val));
+			return false;
+		}
+		prev = val;
+	}
+	return true;
+}
+
+/**
  * Test for Huffman coding implementation.
  */
 class HuffmanTest: public ::testing::Test {
@@ -1914,4 +1937,193 @@ TEST_F(HuffmanTest, generate_table_odds) {
 //	}
 //	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
 //	free(src);
+}
+
+/**
+ * Validates {@link merge_table} algorithm.
+ */
+TEST_F(HuffmanTest, merge_table) {
+	uint64_t table[2 * TEST_TABLE_SIZE];
+	uint64_t *left = table, *right;
+	uint64_t lSize, rSize, retSize;
+
+	/*---- 1 ----*/
+
+	// Case 1: left 0/1, right 0/0
+	memset(table, 0x00, 2 * TEST_TABLE_SIZE * sizeof(uint64_t));
+	lSize = 1;
+	right = NULL;
+	rSize = 0;
+	EXPECT_EQ(0, retSize = merge_table(left, right, lSize, rSize));
+	EXPECT_EQ(true, is_sorted_descending(left, retSize));
+
+	// Case 2: left 1/1, right 0/0
+	memset(table, 0x00, 2 * TEST_TABLE_SIZE * sizeof(uint64_t));
+	*get_table_value(left, 0) = 55;
+	*get_table_id(left, 0) = 1;
+	EXPECT_EQ(1, retSize = merge_table(left, right, lSize, rSize));
+	EXPECT_EQ(true, is_sorted_descending(left, retSize));
+	EXPECT_EQ(55, *get_table_value(left, 0));
+	EXPECT_EQ(1, *get_table_id(left, 0));
+
+	/*---- 2 ----*/
+
+	// Case 3: left 0/1, right 0/1
+	memset(table, 0x00, 2 * TEST_TABLE_SIZE * sizeof(uint64_t));
+	lSize = 1;
+	right = get_table_value(table, lSize);
+	rSize = 1;
+	EXPECT_EQ(0, retSize = merge_table(left, right, lSize, rSize));
+	EXPECT_EQ(true, is_sorted_descending(left, retSize));
+
+	// Case 4: left 1/1, right 0/1
+	memset(table, 0x00, 2 * TEST_TABLE_SIZE * sizeof(uint64_t));
+	lSize = 1;
+	right = get_table_value(table, lSize);
+	rSize = 1;
+	*get_table_value(left, 0) = 55;
+	*get_table_id(left, 0) = 1;
+	EXPECT_EQ(1, retSize = merge_table(left, right, lSize, rSize));
+	EXPECT_EQ(true, is_sorted_descending(left, retSize));
+
+	// Case 5: left 0/1, right 1/1
+	memset(table, 0x00, 2 * TEST_TABLE_SIZE * sizeof(uint64_t));
+	lSize = 1;
+	right = get_table_value(table, lSize);
+	rSize = 1;
+	*get_table_value(right, 0) = 66;
+	*get_table_id(right, 0) = 12;
+	EXPECT_EQ(1, retSize = merge_table(left, right, lSize, rSize));
+	EXPECT_EQ(true, is_sorted_descending(left, retSize));
+	EXPECT_EQ(12, *get_table_id(left, 0));
+
+	// Case 6: left 1/1, right 1/1; swap
+	memset(table, 0x00, 2 * TEST_TABLE_SIZE * sizeof(uint64_t));
+	lSize = 1;
+	right = get_table_value(table, 1);
+	rSize = 1;
+	*get_table_value(left, 0) = 55;
+	*get_table_id(left, 0) = 2;
+	*get_table_value(right, 0) = 66;
+	*get_table_id(right, 0) = 1;
+	EXPECT_EQ(2, retSize = merge_table(left, right, lSize, rSize));
+	EXPECT_EQ(true, is_sorted_descending(left, retSize));
+	EXPECT_EQ(66, *get_table_value(left, 0));
+	EXPECT_EQ(1, *get_table_id(left, 0));
+	EXPECT_EQ(55, *get_table_value(left, 1));
+	EXPECT_EQ(2, *get_table_id(left, 1));
+
+
+	/*---- 3 ----*/
+
+	// Case 7: left 0/2, right 1/1
+	memset(table, 0x00, 2 * TEST_TABLE_SIZE * sizeof(uint64_t));
+	lSize = 1;
+	right = get_table_value(table, lSize);
+	rSize = 1;
+	*get_table_value(left, 0) = 23;
+	*get_table_id(left, 0) = 7;
+	EXPECT_EQ(1, retSize = merge_table(left, right, lSize, rSize));
+	EXPECT_EQ(true, is_sorted_descending(left, retSize));
+	EXPECT_EQ(23, *get_table_value(left, 0));
+	EXPECT_EQ(7, *get_table_id(left, 0));
+
+	/*---- 4 ----*/
+
+	// Case 8: left 1/2, right 1/2
+	memset(table, 0x00, 2 * TEST_TABLE_SIZE * sizeof(uint64_t));
+	lSize = 2;
+	right = get_table_value(table, lSize);
+	rSize = 2;
+	*get_table_value(left, 0) = 23;
+	*get_table_id(left, 0) = 7;
+	*get_table_value(right, 0) = 1;
+	*get_table_id(right, 0) = 9;
+	EXPECT_EQ(2, retSize = merge_table(left, right, lSize, rSize));
+	EXPECT_EQ(true, is_sorted_descending(left, retSize));
+	EXPECT_EQ(7, *get_table_id(left, 0));
+	EXPECT_EQ(9, *get_table_id(left, 1));
+	EXPECT_EQ(1, *get_table_value(left, 1));
+
+
+	/*---- 5 ----*/
+	// Case 9: left 0/3, right 0/2
+	memset(table, 0x00, 2 * TEST_TABLE_SIZE * sizeof(uint64_t));
+	lSize = 3;
+	right = get_table_value(table, lSize);
+	rSize = 2;
+	EXPECT_EQ(0, retSize = merge_table(left, right, lSize, rSize));
+	EXPECT_EQ(true, is_sorted_descending(left, retSize));
+
+	// Case 10: left 0/3, right 2/2
+	memset(table, 0x00, 2 * TEST_TABLE_SIZE * sizeof(uint64_t));
+	lSize = 3;
+	right = get_table_value(table, lSize);
+	rSize = 2;
+	*get_table_value(right, 0) = 23;
+	*get_table_id(right, 0) = (uint64_t) 0xDEADFEED;
+	*get_table_value(right, 1) = 512;
+	*get_table_id(right, 1) = (uint64_t) 0xBEEFCAFE;
+	EXPECT_EQ(2, retSize = merge_table(left, right, lSize, rSize));
+	EXPECT_EQ(true, is_sorted_descending(left, retSize));
+	EXPECT_EQ(0xBEEFCAFE, *get_table_id(left, 0));
+	EXPECT_EQ(0xDEADFEED, *get_table_id(left, 1));
+
+	// Case 11: left 3/3, right 1/2
+	memset(table, 0x00, 2 * TEST_TABLE_SIZE * sizeof(uint64_t));
+	lSize = 3;
+	right = get_table_value(table, lSize);
+	rSize = 2;
+	*get_table_value(left, 0) = (uint64_t) 1 << 40;
+	*get_table_id(left, 0) = 40;
+	*get_table_value(left, 1) = (uint64_t) 1 << 32;
+	*get_table_id(left, 1) = 32;
+	*get_table_value(left, 2) = (uint64_t) 1 << 21;
+	*get_table_id(left, 2) = 21;
+	*get_table_value(right, 0) = (uint64_t) 1 << 40;
+	*get_table_id(right, 0) = 400;
+	EXPECT_EQ(4, retSize = merge_table(left, right, lSize, rSize));
+	EXPECT_EQ(true, is_sorted_descending(left, retSize));
+
+
+	/*---- 6 ----*/
+
+	// Case 12: left 3/3, right 3/3
+	memset(table, 0x00, 2 * TEST_TABLE_SIZE * sizeof(uint64_t));
+	lSize = 3;
+	right = get_table_value(table, lSize);
+	rSize = 3;
+	*get_table_value(left, 0) = (uint64_t) 1 << 40;
+	*get_table_id(left, 0) = 40;
+	*get_table_value(left, 1) = (uint64_t) 1 << 32;
+	*get_table_id(left, 1) = 32;
+	*get_table_value(left, 2) = (uint64_t) 1 << 21;
+	*get_table_id(left, 2) = 21;
+	*get_table_value(right, 0) = (uint64_t) 1 << 57;
+	*get_table_id(right, 0) = 570;
+	*get_table_value(right, 1) = (uint64_t) 1 << 40;
+	*get_table_id(right, 1) = 400;
+	*get_table_value(right, 2) = (uint64_t) 1 << 32;
+	*get_table_id(right, 2) = 320;
+	EXPECT_EQ(6, retSize = merge_table(left, right, lSize, rSize));
+	EXPECT_EQ(true, is_sorted_descending(left, retSize));
+
+
+	/*---- 7 ----*/
+
+	// Case 13: left 2/6, right 2/3
+	memset(table, 0x00, 2 * TEST_TABLE_SIZE * sizeof(uint64_t));
+	lSize = 6;
+	right = get_table_value(table, lSize);
+	rSize = 3;
+	*get_table_value(left, 0) = (uint64_t) 1 << 40;
+	*get_table_id(left, 0) = 40;
+	*get_table_value(left, 1) = (uint64_t) 1 << 10;
+	*get_table_id(left, 1) = 10;
+	*get_table_value(right, 0) = (uint64_t) 1 << 63;
+	*get_table_id(right, 0) = 630;
+	*get_table_value(right, 1) = (uint64_t) 1 << 54;
+	*get_table_id(right, 1) = 540;
+	EXPECT_EQ(4, retSize = merge_table(left, right, lSize, rSize));
+	EXPECT_EQ(true, is_sorted_descending(left, retSize));
 }
