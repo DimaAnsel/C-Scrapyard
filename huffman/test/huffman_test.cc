@@ -21,17 +21,17 @@
 #define TEST_TABLE_SIZE (uint64_t) 20
 
 /**
- * Small volume data size in bytes.
+ * Small volume data size (1024 bytes).
  */
 #define HUFFMAN_TEST_SMALL_VOLUME (uint64_t) (1024)
 
 /**
- * Medium volume data size in bytes.
+ * Medium volume data size (1 MB) in bytes.
  */
 #define HUFFMAN_TEST_MEDIUM_VOLUME (uint64_t) (1048576)
 
 /**
- * Large volume data size in bytes.
+ * Large volume data size (20 MB) in bytes.
  */
 #define HUFFMAN_TEST_LARGE_VOLUME (uint64_t) (1048576 * 20)
 
@@ -1773,7 +1773,6 @@ TEST_F(HuffmanTest, generate_table_evens) {
 	ASSERT_NE((uint8_t*)NULL, src);
 	temp = src;
 	bit = 0;
-	size = srcSize;
 	cut1 = (HUFFMAN_TEST_MEDIUM_VOLUME / 3 / 16) * 3;
 	cut2 = cut1 + (HUFFMAN_TEST_MEDIUM_VOLUME / 3 / 32) * 3;
 	memset(src, 0xEE, cut1);
@@ -1798,9 +1797,11 @@ TEST_F(HuffmanTest, generate_table_evens) {
 //	wordSize = 32;
 //	src = (uint8_t*) malloc(srcSize + 1);
 //	ASSERT_NE((uint8_t*)NULL, src);
-//	for (i = 0; i < srcSize; i++) {
-//		src[i] = 0x0;
-//	}
+//	cut1 = (HUFFMAN_TEST_MEDIUM_VOLUME / wordSize) / 7 * 2;
+//	cut2 = cut1 / 2;
+//	bit = 0;
+//	size = srcSize;
+//	// generate
 //	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
 //	free(src);
 

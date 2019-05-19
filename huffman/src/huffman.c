@@ -882,6 +882,69 @@ static HuffmanError sort_table(HuffmanHeader *hdr,
 	return ERR_NO_ERR;
 }
 
+static HuffmanError calculate_compressed_size(HuffmanHeader* hdr,
+											  HuffmanHashTable* table,
+											  uint8_t* src,
+											  uint64_t srcSize,
+											  uint8_t wordSize) {
+	if (hdr == NULL || src == NULL || table == NULL) {
+		return ERR_NULL_PTR;
+	}
+	if (srcSize == 0 ||
+			wordSize < HUFFMAN_MIN_WORD_SIZE ||
+			wordSize > HUFFMAN_MAX_WORD_SIZE) {
+		return ERR_INVALID_VALUE;
+	}
+
+	table->size = 0;
+	table->table = NULL;
+
+	HuffmanError err;
+
+	// todo add step 1
+
+	// Step 2: Build hash map
+	THROW_ERR(generate_table(hdr, table, src, srcSize, wordSize))
+
+	// Step 3: Convert hash map to sorted array
+	THROW_ERR(sort_table(hdr, table))
+
+	// Step 4: Calculate size
+	// todo calculate size
+
+	return ERR_NO_ERR;
+}
+
+HuffmanError huffman_calculate_compressed_size(HuffmanHeader* hdr,
+											   uint8_t* src,
+											   uint64_t srcSize,
+											   uint8_t wordSize) {
+	HuffmanError err;
+	if (hdr == NULL || src == NULL) {
+		return ERR_NULL_PTR;
+	}
+	if (srcSize == 0 ||
+			wordSize < HUFFMAN_MIN_WORD_SIZE ||
+			wordSize > HUFFMAN_MAX_WORD_SIZE) {
+		return ERR_INVALID_VALUE;
+	}
+
+	HuffmanHashTable table;
+
+	THROW_ERR(calculate_compressed_size(hdr, &table, src, srcSize, wordSize))
+
+	// Step 5: Cleanup
+
+	return ERR_NO_ERR;
+}
+
+HuffmanError huffman_compress(HuffmanHeader* hdr,
+							  uint8_t* src,
+							  uint64_t srcSize,
+							  uint8_t wordSize) {
+	return ERR_NO_ERR;
+}
+
 #ifdef __cplusplus
 }
 #endif
