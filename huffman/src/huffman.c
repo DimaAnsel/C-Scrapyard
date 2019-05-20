@@ -786,11 +786,14 @@ static HuffmanError generate_table(HuffmanHeader* hdr,
  *
  * Merge operates under several key assumptions:
  *	- sizeLeft >= sizeRight
- *	- Left and right sub-arrays are located sequentially in memory to allow overlap.
+ *	- Left and right sub-arrays are located sequentially
+ *	  in memory to allow overlap.
  *	- All non-zero values are at front of sub-arrays.
  *
  * @param[in,out] left      Left sub-array, also beginning of output array.
- * @param[in,out] right     Right sub-array. May be partially overwritten during merge.
+ * @param[in,out] right     Right sub-array. State after merge is not guaranteed.
+ * 							Partially overwritten if number of non-zero elements
+ * 							in left and right arrays combined > sizeLeft.
  * @param[in]     sizeLeft  Capacity of left sub-array.
  * @param[in]     sizeRight Capacity of right sub-array.
  *
