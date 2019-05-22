@@ -857,14 +857,33 @@ static uint64_t merge_table(uint64_t* left,
 
 /**
  * @ingroup HuffmanHelpers
- * @todo doc
+ * Merges two sub-arrays using {@link merge_table}.
+ *
+ * @param[in,out] left      Left sub-array, also beginning of output array.
+ * @param[in,out] right     Right sub-array. State after merge is not guaranteed.
+ * 							Partially overwritten if number of non-zero elements
+ * 							in left and right arrays combined > sizeLeft.
+ * @param[in]     sizeLeft  Capacity of left sub-array.
+ * @param[in]     sizeRight Capacity of right sub-array.
+ *
+ * @return Total number of non-empty elements in merged array.
  */
-static HuffmanError merge_sort(uint64_t* left,
-							   uint64_t* right,
-							   uint64_t sizeLeft,
-							   uint64_t sizeRight) {
-	// todo sort
-	return ERR_NO_ERR;
+static uint64_t merge_sort(uint64_t* left,
+						   uint64_t* right,
+						   uint64_t sizeLeft,
+						   uint64_t sizeRight) {
+	uint64_t mid, ret, retRight = sizeRight;
+	if (sizeLeft > 1) {
+		mid = (sizeLeft + 1) / 2;
+		merge_sort(left, get_table_value(left, mid), mid, sizeLeft - mid);
+	}
+	if (sizeRight > 1) {
+		mid = (sizeRight + 1) / 2;
+		retRight = merge_sort(right, get_table_value(right, mid), mid, sizeRight - mid);
+	}
+	// use retRight for early exit condition
+	ret = merge_table(left, right, sizeLeft, retRight);
+	return ret;
 }
 
 /**
@@ -881,6 +900,14 @@ static HuffmanError merge_sort(uint64_t* left,
  */
 static HuffmanError sort_table(HuffmanHeader *hdr,
 							   HuffmanHashTable *dst) {
+	uint64_t mid = dst->size / 2;
+	uint64_t* left = dst->table;
+	uint64_t* right = get_table_value(dst->table, mid);
+	uint64_t size = merge_sort(left, right, mid, dst->size - mid);
+	if (size != hdr->uniqueWords) {
+		return ERR_INVALID_VALUE;
+	}
+
 	// todo sort
 	return ERR_NO_ERR;
 }

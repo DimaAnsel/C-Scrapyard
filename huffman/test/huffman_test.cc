@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 #include "../src/inc/huffman.h"
 #include "../src/huffman.c"
@@ -50,7 +51,7 @@ static bool is_sorted_descending(uint64_t* table, uint64_t size) {
 	for (i = 1; i < size; i++) {
 		val = *get_table_value(table, i);
 		if (prev < val) {
-			printf("Fail at %lu (%u < %u)\n", i, log2_ceil_u64(prev), log2_ceil_u64(val));
+			printf("Fail at %lu (%u < %u)\n", i, prev, val);
 			return false;
 		}
 		prev = val;
@@ -2127,4 +2128,48 @@ TEST_F(HuffmanTest, merge_table) {
 	*get_table_id(right, 1) = 540;
 	EXPECT_EQ(4, retSize = merge_table(left, right, lSize, rSize));
 	EXPECT_EQ(true, is_sorted_descending(left, retSize));
+}
+
+/**
+ * Validates {@link sort_table} algorithm.
+ */
+TEST_F(HuffmanTest, sort_table) {
+	HuffmanHeader header;
+	HuffmanHashTable table;
+	uint8_t* src, *temp;
+	uint8_t wordSize, bit;
+	uint64_t i, j, val, dstIdx, srcSize, size;
+	HuffmanError err;
+
+	// Test 1
+	srcSize = HUFFMAN_TEST_SMALL_VOLUME;
+	wordSize = 9;
+	src = (uint8_t*) malloc(srcSize + 1);
+	ASSERT_NE((uint8_t*)NULL, src);
+	temp = src;
+	val = 0x0;
+	for (i = 0; i < srcSize; i++) {
+		*(temp++) = (uint8_t) (rand() % 0xFF);
+	}
+	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
+	free(src);
+	EXPECT_EQ(ERR_NO_ERR, sort_table(&header, &table));
+	EXPECT_TRUE(is_sorted_descending(table.table, table.size));
+	free(table.table);
+
+	// Test 2
+	srcSize = HUFFMAN_TEST_LARGE_VOLUME;
+	wordSize = 13;
+	src = (uint8_t*) malloc(srcSize + 1);
+	ASSERT_NE((uint8_t*)NULL, src);
+	temp = src;
+	val = 0x0;
+	for (i = 0; i < srcSize; i++) {
+		*(temp++) = (uint8_t) (rand() % 0xFF);
+	}
+	EXPECT_EQ(ERR_NO_ERR, generate_table(&header, &table, src, srcSize, wordSize));
+	free(src);
+	EXPECT_EQ(ERR_NO_ERR, sort_table(&header, &table));
+	EXPECT_TRUE(is_sorted_descending(table.table, table.size));
+	free(table.table);
 }
