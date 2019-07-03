@@ -15,9 +15,12 @@ extern "C" {
 /**Include guard.*/
 #define __HUFFMAN_H_
 
+// Includes
+#include <stdint.h>
+
 ////////////////////////////////////////////////////////////////
 ///
-/// @defgroup HuffmanConstants Huffman constants
+/// @defgroup HuffmanConstants Huffman Constants
 /// Constants for Huffman compression framework in {@link huffman.c}.
 ///
 ////////////////////////////////////////////////////////////////
@@ -114,7 +117,7 @@ typedef struct HuffmanHashTable_struct {
  * Standard interface to get size of value in bits for index
  * using a given mapping.
  *
- * @see map.c
+ * @see basemap.c
  */
 typedef uint64_t (*get_compressed_size_fcn) (uint64_t idx,
 											 uint64_t maxIdx,
@@ -123,7 +126,7 @@ typedef uint64_t (*get_compressed_size_fcn) (uint64_t idx,
 /**
  * Standard interface to get value for index using a given mapping.
  *
- * @see map.c
+ * @see basemap.c
  */
 typedef uint64_t (*get_compressed_val_fcn) (uint64_t idx,
 											uint64_t maxIdx,
@@ -133,7 +136,7 @@ typedef uint64_t (*get_compressed_val_fcn) (uint64_t idx,
  * Standard interface to get index referenced by compressed value
  * using a given mapping. Also updates
  *
- * @see map.c
+ * @see basemap.c
  */
 typedef HuffmanError (*parse_compressed_idx_fcn) (uint64_t* dst,
 												  uint8_t** src,

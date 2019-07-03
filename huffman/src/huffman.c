@@ -9,20 +9,20 @@
  * @author	Noah Ansel
  */
 
-#include <stdint.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// Includes
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdbool.h>
 
 #include "huffman.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 ////////////////////////////////////////////////////////////////
 ///
-/// @defgroup HuffmanHelpers Huffman helper functions
+/// @defgroup HuffmanHelpers Huffman Helper Functions
 /// Helper functions for Huffman compression framework in {@link huffman.c}.
 ///
 ////////////////////////////////////////////////////////////////
@@ -912,6 +912,9 @@ static HuffmanError sort_table(HuffmanHeader *hdr,
 	return ERR_NO_ERR;
 }
 
+/**
+ * @todo document this
+ */
 static HuffmanError calculate_compressed_size(HuffmanHeader* hdr,
 											  HuffmanHashTable* table,
 											  uint8_t* src,
@@ -945,6 +948,9 @@ static HuffmanError calculate_compressed_size(HuffmanHeader* hdr,
 	return ERR_NO_ERR;
 }
 
+/**
+ * @todo document this
+ */
 HuffmanError huffman_calculate_compressed_size(HuffmanHeader* hdr,
 											   uint8_t* src,
 											   uint64_t srcSize,
@@ -968,6 +974,9 @@ HuffmanError huffman_calculate_compressed_size(HuffmanHeader* hdr,
 	return ERR_NO_ERR;
 }
 
+/**
+ * @todo document this
+ */
 HuffmanError huffman_compress(HuffmanHeader* hdr,
 							  uint8_t* src,
 							  uint64_t srcSize,

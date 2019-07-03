@@ -1,12 +1,27 @@
 /**
- * @file map.c
+ * @file basemap.c
  * Various Huffman encoding mappings.
  *
  * @date	2018-12-22
  * @author	Noah Ansel
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// Includes
+#include "basemap.h"
+
+////////////////////////////////////////////////////////////////
+///
+/// @defgroup HuffmanBaseMaps Huffman Basic Mapping Functions
+/// Basic mapping functions used for Huffman compression.
+///
+////////////////////////////////////////////////////////////////
+
 /**
+ * @ingroup HuffmanBaseMaps
  * Determines number of bits needed for given word using one-hot encoding
  * mapping.
  *
@@ -21,6 +36,7 @@ uint64_t one_hot_get_compressed_size(uint64_t idx, uint64_t maxIdx, uint8_t dept
 }
 
 /**
+ * @ingroup HuffmanBaseMaps
  * Determines value for given word using one-hot encoding mapping.
  *
  * @param[in] idx    Index of word in frequency table (0 being most frequent).
@@ -36,6 +52,7 @@ uint64_t one_hot_get_compressed_val(uint64_t idx,
 }
 
 /**
+ * @ingroup HuffmanBaseMaps
  * Determines number of bits needed for given word using fixed-depth tree
  * encoding mapping.
  *
@@ -55,6 +72,7 @@ uint64_t fix_depth_tree_get_compressed_size(uint64_t idx,
 }
 
 /**
+ * @ingroup HuffmanBaseMaps
  * Determines value for given word using fixed-depth tree encoding mapping.
  *
  * @param[in] idx    Index of word in frequency table (0 being most frequent).
@@ -73,6 +91,7 @@ uint64_t fix_depth_tree_get_compressed_val(uint64_t idx,
 }
 
 /**
+ * @ingroup HuffmanBaseMaps
  * Determines value for given word using log-depth tree encoding mapping.
  *
  * @param[in] idx    Index of word in frequency table (0 being most frequent).
@@ -91,6 +110,7 @@ uint64_t log_depth_tree_get_compressed_size(uint64_t idx,
 }
 
 /**
+ * @ingroup HuffmanBaseMaps
  * Determines number of bits needed for given word using log-depth tree
  * encoding mapping.
  *
@@ -108,3 +128,7 @@ uint64_t log_depth_tree_get_compressed_val(uint64_t idx,
 	}
 	return 0;
 }
+
+#ifdef __cplusplus
+}
+#endif
