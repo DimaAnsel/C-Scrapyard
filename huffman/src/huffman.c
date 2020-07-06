@@ -907,19 +907,32 @@ static HuffmanError sort_table(HuffmanHeader *hdr,
 	if (size != hdr->uniqueWords) {
 		return ERR_INVALID_VALUE;
 	}
-
-	// todo sort
 	return ERR_NO_ERR;
 }
 
 /**
- * @todo document this
+ * @ingroup HuffmanHelpers
+ * Calculates compressed size in bytes
+ *
+ * @warning This allocates a table that must be freed later.
+ *
+ * @param[out]	  dst		  Destination for calculation results.
+ * @param[in,out] hdr		  Header populated with metadata.
+ * @param[in,out] table		  Pointer to table. Table data must be freed by calling function.
+ * @param[in]	  src		  Data to be converted.
+ * @param[in]	  srcSize	  Size of data in bytes.
+ * @param[in]	  wordSize	  Word size used for compression.
+ * @param[in]	  compSizeFcn Function that calculates compressed size of a word.
+ * @param[in]	  depthParam  Depth parameter passed into compressed size function.
  */
-static HuffmanError calculate_compressed_size(HuffmanHeader* hdr,
+static HuffmanError calculate_compressed_size(HuffmanStats* dst,
+											  HuffmanHeader* hdr,
 											  HuffmanHashTable* table,
 											  uint8_t* src,
 											  uint64_t srcSize,
-											  uint8_t wordSize) {
+											  uint8_t wordSize,
+											  get_compressed_size_fcn compressedSize,
+											  uint8_t depthParam) {
 	if (hdr == NULL || src == NULL || table == NULL) {
 		return ERR_NULL_PTR;
 	}
@@ -933,6 +946,8 @@ static HuffmanError calculate_compressed_size(HuffmanHeader* hdr,
 	table->table = NULL;
 
 	HuffmanError err;
+	uint64_t sizeBits, sizeBytes, idx, uniqueWords;
+	uint64_t* tablePtr;
 
 	// todo add step 1
 
@@ -943,18 +958,46 @@ static HuffmanError calculate_compressed_size(HuffmanHeader* hdr,
 	THROW_ERR(sort_table(hdr, table))
 
 	// Step 4: Calculate size
-	// todo calculate size
+	uniqueWords = hdr->uniqueWords;
+	tablePtr = table->table;
+	sizeBits = sizeBytes = 0;
+	for (idx = 0; idx < uniqueWords; idx++) {
+		sizeBits += (*get_table_value(tablePtr, idx)) * compressedSize(idx, uniqueWords, depthParam);
+		sizeBytes += sizeBits / 8;
+		sizeBits = sizeBits % 8;
+	}
+	if (sizeBits) {
+		sizeBytes++;
+	}
+	dst->dataSizeBytes = sizeBytes;
+	dst->dataBitsInLastByte = sizeBits;
 
 	return ERR_NO_ERR;
 }
 
 /**
  * @todo document this
+ *
+ * @param[out]	  dst		  Destination for calculation results.
+ * @param[in,out] hdr		  Header populated with metadata.
+ * @param[in]	  src		  Data to be converted.
+ * @param[in]	  srcSize	  Size of data in bytes.
+ * @param[in]	  wordSize	  Word size used for compression.
+ * @param[in]	  compSizeFcn Function that calculates compressed size of a word.
+ * @param[in]	  depthParam  Depth parameter passed into compressed size function.
+ *
+ * @return {@link ERR_NO_ERR} if no error occurred.\n
+ *         {@link ERR_NULL_PTR} if a parameter is null.\n
+ *         {@link ERR_INVALID_VALUE} if srcSize or wordSize are out of accepted range.\n
+ *         Other errors as raised by {@link calculate_compressed_size}.
  */
-HuffmanError huffman_calculate_compressed_size(HuffmanHeader* hdr,
+HuffmanError huffman_calculate_compressed_size(HuffmanStats* dst,
+											   HuffmanHeader* hdr,
 											   uint8_t* src,
 											   uint64_t srcSize,
-											   uint8_t wordSize) {
+											   uint8_t wordSize,
+											   get_compressed_size_fcn fcn,
+											   uint8_t depthParam) {
 	HuffmanError err;
 	if (hdr == NULL || src == NULL) {
 		return ERR_NULL_PTR;
@@ -967,9 +1010,10 @@ HuffmanError huffman_calculate_compressed_size(HuffmanHeader* hdr,
 
 	HuffmanHashTable table;
 
-	THROW_ERR(calculate_compressed_size(hdr, &table, src, srcSize, wordSize))
+	THROW_ERR(calculate_compressed_size(dst, hdr, &table, src, srcSize, wordSize, fcn, depthParam));
 
 	// Step 5: Cleanup
+	free(table.table);
 
 	return ERR_NO_ERR;
 }
@@ -981,6 +1025,31 @@ HuffmanError huffman_compress(HuffmanHeader* hdr,
 							  uint8_t* src,
 							  uint64_t srcSize,
 							  uint8_t wordSize) {
+	HuffmanError err;
+	if (hdr == NULL || src == NULL) {
+		return ERR_NULL_PTR;
+	}
+	if (srcSize == 0 ||
+			wordSize < HUFFMAN_MIN_WORD_SIZE ||
+			wordSize > HUFFMAN_MAX_WORD_SIZE) {
+		return ERR_INVALID_VALUE;
+	}
+
+	HuffmanStats dst;
+	HuffmanHashTable table;
+
+	table.size = 0;
+	table.table = NULL;
+
+	uint64_t sizeBits, sizeBytes, idx, uniqueWords;
+	uint64_t* tablePtr;
+
+	// Step 2: Build hash map
+	THROW_ERR(generate_table(hdr, &table, src, srcSize, wordSize))
+
+	// Step 3: Convert hash map to sorted array
+	THROW_ERR(sort_table(hdr, &table))
+
 	return ERR_NO_ERR;
 }
 

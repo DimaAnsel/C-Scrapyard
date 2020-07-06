@@ -73,6 +73,38 @@ typedef enum HuffmanError_enum {
 } HuffmanError;
 
 /**
+ * Standard interface to get size of value in bits for index
+ * using a given mapping.
+ *
+ * @see basemap.c
+ */
+typedef uint64_t (*get_compressed_size_fcn) (uint64_t idx,
+											 uint64_t maxIdx,
+											 uint8_t depth);
+
+/**
+ * Standard interface to get value for index using a given mapping.
+ *
+ * @see basemap.c
+ */
+typedef uint64_t (*get_compressed_val_fcn) (uint64_t idx,
+											uint64_t maxIdx,
+											uint8_t depth);
+
+/**
+ * Standard interface to get index referenced by compressed value
+ * using a given mapping. Also updates
+ *
+ * @see basemap.c
+ */
+typedef HuffmanError (*parse_compressed_idx_fcn) (uint64_t* dst,
+												  uint8_t** src,
+												  uint8_t* start,
+												  uint8_t size,
+												  uint64_t maxIdx,
+												  uint8_t depth);
+
+/**
  * @struct HuffmanHeader
  * Metadata information for compressed data.
  */
@@ -113,37 +145,28 @@ typedef struct HuffmanHashTable_struct {
 	uint64_t* table;
 } HuffmanHashTable;
 
-/**
- * Standard interface to get size of value in bits for index
- * using a given mapping.
- *
- * @see basemap.c
- */
-typedef uint64_t (*get_compressed_size_fcn) (uint64_t idx,
-											 uint64_t maxIdx,
-											 uint8_t depth);
+typedef struct HuffmanStats_struct {
+	/**
+	 * Size of compressed data in bytes (ceiling).
+	 */
+	uint64_t dataSizeBytes;
+	/**
+	 * Number of bits in last byte of compressed data.
+	 */
+	uint8_t dataBitsInLastByte;
+} HuffmanStats;
 
 /**
- * Standard interface to get value for index using a given mapping.
- *
- * @see basemap.c
+ * @struct HuffmanCompressor
+ * Function pointers for compression algorithms.
  */
-typedef uint64_t (*get_compressed_val_fcn) (uint64_t idx,
-											uint64_t maxIdx,
-											uint8_t depth);
+typedef struct HuffmanCompressor_struct {
+	get_compressed_size_fcn  getSize;
+	get_compressed_val_fcn   getVal;
+	parse_compressed_idx_fcn parseIdx;
+} HuffmanCompressor;
 
-/**
- * Standard interface to get index referenced by compressed value
- * using a given mapping. Also updates
- *
- * @see basemap.c
- */
-typedef HuffmanError (*parse_compressed_idx_fcn) (uint64_t* dst,
-												  uint8_t** src,
-												  uint8_t* start,
-												  uint8_t size,
-												  uint64_t maxIdx,
-												  uint8_t depth);
+
 
 #endif // __HUFFMAN_H_
 

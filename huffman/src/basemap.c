@@ -11,7 +11,20 @@ extern "C" {
 #endif
 
 // Includes
+#include "huffman.h"
 #include "basemap.h"
+
+/////////// helpers
+
+/**
+ * Gets ceiling of uint64 division.
+ */
+static uint64_t div_ceil_u64(uint64_t dividend, uint64_t divisor) {
+	if (dividend % divisor != 0) {
+		return 1 + (dividend / divisor);
+	}
+	return dividend / divisor;
+}
 
 ////////////////////////////////////////////////////////////////
 ///
@@ -19,6 +32,16 @@ extern "C" {
 /// Basic mapping functions used for Huffman compression.
 ///
 ////////////////////////////////////////////////////////////////
+
+/**
+ * @ingroup HuffmanBaseMaps
+ * Mapping table for one-hot encoding.
+ */
+HuffmanCompressor OneHot = {
+	getSize: one_hot_get_compressed_size,
+	getVal: one_hot_get_compressed_val,
+	parseIdx: one_hot_parse_compressed_idx
+};
 
 /**
  * @ingroup HuffmanBaseMaps
@@ -51,6 +74,15 @@ uint64_t one_hot_get_compressed_val(uint64_t idx,
 	return (uint64_t)0x1;
 }
 
+HuffmanError one_hot_parse_compressed_idx(uint64_t* dst,
+										  uint8_t** src,
+										  uint8_t* start,
+										  uint8_t size,
+										  uint64_t maxIdx,
+										  uint8_t depth) {
+	return ERR_NO_ERR;
+}
+
 /**
  * @ingroup HuffmanBaseMaps
  * Determines number of bits needed for given word using fixed-depth tree
@@ -68,7 +100,13 @@ uint64_t fix_depth_tree_get_compressed_size(uint64_t idx,
 	if (idx == 0) {
 		return 1;
 	}
-	return (idx & 0x1) ? idx / 2 + 2 : idx / 2 + 1;
+	static uint8_t cached_depth = depth;
+	static uint64_t pow2 = ((uint64_t) 1) << ((uint64_t) depth); // 2^k
+	if (cached_depth != depth) { // TODO see if caching actually helps here
+		cached_depth = depth;
+		pow2 = ((uint64_t) 1) << ((uint64_t) depth);
+	}
+	return 1 + depth + div_ceil_u64(idx, pow2);
 }
 
 /**
@@ -85,9 +123,18 @@ uint64_t fix_depth_tree_get_compressed_val(uint64_t idx,
 										   uint64_t maxIdx,
 										   uint8_t depth) {
 	if (idx == 0) {
-		return 0x1;
+		return 1;
 	}
-	return (idx & 0x1) & 0x2;
+	static uint8_t cached_depth = depth;
+	static uint64_t pow2 = ((uint64_t) 1) << ((uint64_t) depth); // 2^k
+	if (cached_depth != depth) { // TODO see if caching actually helps here
+		cached_depth = depth;
+		pow2 = ((uint64_t) 1) << ((uint64_t) depth);
+	}
+	if (idx % pow2 == 0) {
+		return pow2;
+	}
+	return pow2 * 2 - (idx % pow2); // 2^(k+1) - (i % (2^k))
 }
 
 /**
