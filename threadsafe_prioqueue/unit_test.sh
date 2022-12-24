@@ -16,12 +16,12 @@ mkdir googletest_out;
 cd googletest_out;
 cmake ../../../lib/googletest;
 make;
-cp lib/*.a ../lib;
+cp *.a ../lib;
 cd ..;
 
 # build test file using framework
 echo -e "${ORANGE}[Build unit tests]${NC}"
-g++ -std=gnu++11 -Isrc -I../../lib/googletest/googletest/include/ -pthread ./test/threadsafe_prioqueue_test.cc lib/libgtest_main.a lib/libgtest.a -o./threadsafe_prioqueue_test;
+g++ -Isrc -I../../lib/googletest/include/ -pthread ./test/threadsafe_prioqueue_test.cc lib/libgtest_main.a lib/libgtest.a -o./threadsafe_prioqueue_test;
 
 # run unit tests
 echo -e "${ORANGE}[Run unit tests]${NC}"
